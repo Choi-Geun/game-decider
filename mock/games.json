@@ -1,0 +1,14 @@
+[
+  { "appid": "1245620", "name": "ELDEN RING", "playtimeMinutes": 60, "genres": ["RPG", "Action"], "tags": ["Souls-like", "Open World", "Single-player"] },
+  { "appid": "413150", "name": "Stardew Valley", "playtimeMinutes": 20, "genres": ["Simulation", "RPG"], "tags": ["Farming", "Cozy", "Casual", "Co-op"] },
+  { "appid": "1091500", "name": "Cyberpunk 2077", "playtimeMinutes": 0, "genres": ["RPG"], "tags": ["Open World", "Story Rich", "Single-player"] },
+  { "appid": "570", "name": "Dota 2", "playtimeMinutes": 3000, "genres": ["Action", "Strategy"], "tags": ["MOBA", "Multiplayer", "Competitive"] },
+  { "appid": "1174180", "name": "Red Dead Redemption 2", "playtimeMinutes": 0, "genres": ["Adventure", "Action"], "tags": ["Open World", "Story Rich", "Single-player"] },
+  { "appid": "322330", "name": "Don't Starve Together", "playtimeMinutes": 150, "genres": ["Survival", "Adventure"], "tags": ["Co-op", "Multiplayer", "Roguelike"] },
+  { "appid": "1030300", "name": "Hollow Knight: Silksong", "playtimeMinutes": 0, "genres": ["Action", "Adventure"], "tags": ["Platformer", "Metroidvania", "Single-player"] },
+  { "appid": "892970", "name": "Valheim", "playtimeMinutes": 40, "genres": ["Survival", "Adventure"], "tags": ["Co-op", "Open World", "Multiplayer"] },
+  { "appid": "1145360", "name": "Hades", "playtimeMinutes": 90, "genres": ["Action", "RPG"], "tags": ["Roguelike", "Single-player", "Indie"] },
+  { "appid": "739630", "name": "Phasmophobia", "playtimeMinutes": 0, "genres": ["Horror"], "tags": ["Co-op", "Multiplayer", "Party"] },
+  { "appid": "105600", "name": "Terraria", "playtimeMinutes": 10, "genres": ["Adventure", "Sandbox"], "tags": ["Co-op", "Casual", "Multiplayer"] },
+  { "appid": "271590", "name": "Grand Theft Auto V", "playtimeMinutes": 500, "genres": ["Action", "Adventure"], "tags": ["Open World", "Multiplayer"] }
+]

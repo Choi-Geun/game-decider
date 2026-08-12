@@ -1,0 +1,14 @@
+{
+  "name": "game-decider-web",
+  "version": "0.1.0",
+  "description": "지금 뭐 켜지 — 웹 버전 (멀티유저, Steam OpenID 로그인)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-session": "^1.18.0"
+  }
+}

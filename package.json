@@ -1,0 +1,14 @@
+{
+  "name": "game-decider",
+  "version": "0.1.0",
+  "description": "지금 뭐 켜지 — 내 Steam 라이브러리에서 지금 기분·시간·인원에 맞는 게임 1개를 골라주는 데스크톱 앱",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^32.0.0"
+  }
+}

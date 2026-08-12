@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>지금 뭐 켜지</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 20px;
+      font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+      background: #14151a; color: #eaeaf0;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #8a8a99; font-size: 13px; margin-bottom: 20px; }
+    .field { margin-bottom: 16px; }
+    .label { font-size: 13px; color: #b8b8c4; margin-bottom: 8px; }
+    .opts { display: flex; gap: 8px; flex-wrap: wrap; }
+    .opt {
+      padding: 8px 12px; border-radius: 10px; cursor: pointer;
+      background: #22232b; border: 1px solid #2f3038; font-size: 13px; user-select: none;
+    }
+    .opt.active { background: #5b6cff; border-color: #5b6cff; color: #fff; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .roll-btn {
+      width: 100%; margin-top: 8px; padding: 14px; border: none; border-radius: 12px;
+      background: #5b6cff; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .roll-btn:active { transform: scale(0.99); }
+    .result {
+      margin-top: 20px; padding: 18px; border-radius: 14px;
+      background: #1c1d24; border: 1px solid #2f3038; display: none;
+    }
+    .result.show { display: block; }
+    .pick-name { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .pick-reason { color: #c4c4d0; font-size: 14px; line-height: 1.6; }
+    .badge { font-size: 11px; color: #8a8a99; margin-bottom: 6px; }
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    .actions button {
+      flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #2f3038;
+      background: #22232b; color: #eaeaf0; font-size: 14px; cursor: pointer;
+    }
+    .actions .play { background: #2ea043; border-color: #2ea043; color: #fff; font-weight: 700; }
+    .count { font-size: 12px; color: #6a6a77; margin-top: 14px; }
+    label.check { font-size: 13px; color: #b8b8c4; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    /* Steam 연동 */
+    .steam-bar { margin-bottom: 20px; }
+    .steam-login {
+      width: 100%; padding: 12px; border: none; border-radius: 10px;
+      background: #1b2838; color: #66c0f4; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .profile { display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 40px; height: 40px; border-radius: 8px; background: #22232b; }
+    .pname { font-weight: 700; font-size: 14px; }
+    .synced { font-size: 11px; color: #8a8a99; }
+    .sync-btn { margin-left: auto; padding: 8px 12px; border-radius: 8px; border: 1px solid #2f3038; background: #22232b; color: #eaeaf0; cursor: pointer; font-size: 13px; }
+    .progress { margin-top: 8px; font-size: 12px; color: #8a8a99; }
+    .divider { margin: 22px 0 12px; font-size: 14px; font-weight: 700; color: #d0d0dc; }
+    .ach-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .ach-item { background: #14151a; border: 1px solid #2f3038; border-radius: 8px; padding: 10px; }
+    .ach-item .an { font-size: 13px; font-weight: 600; }
+    .ach-item .ad { font-size: 12px; color: #9a9aa8; margin-top: 2px; }
+    .ach-item .ap { font-size: 11px; color: #66c0f4; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>🎮 지금 뭐 켜지</h1>
+  <div class="sub">기분·시간·인원만 고르면, 딱 하나 골라줄게.</div>
+
+  <!-- Steam 연동 -->
+  <div class="steam-bar" id="steamBar">
+    <button class="steam-login" id="login">🔑 Steam으로 로그인</button>
+    <div class="profile" id="profile" style="display:none;">
+      <img id="avatar" class="avatar" />
+      <div>
+        <div id="pname" class="pname"></div>
+        <div id="synced" class="synced"></div>
+      </div>
+      <button id="sync" class="sync-btn">🔄 동기화</button>
+    </div>
+    <div class="progress" id="progress" style="display:none;"></div>
+  </div>
+
+  <div class="field">
+    <div class="label">지금 기분</div>
+    <div class="opts" data-group="mood">
+      <div class="opt" data-value="intense">빡센</div>
+      <div class="opt" data-value="relaxed">느긋</div>
+      <div class="opt" data-value="immersive">몰입</div>
+      <div class="opt" data-value="light">가벼움</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="label">가용 시간</div>
+    <div class="opts" data-group="time">
+      <div class="opt" data-value="short">30분</div>
+      <div class="opt" data-value="medium">1~2시간</div>
+      <div class="opt" data-value="long">오래</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="label">인원</div>
+    <div class="opts" data-group="players">
+      <div class="opt" data-value="solo">혼자</div>
+      <div class="opt" data-value="coop">친구랑</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="check"><input type="checkbox" id="backlog" /> 백로그 모드 (안 깬 게임 우선)</label>
+  </div>
+
+  <button class="roll-btn" id="roll">🎲 골라줘</button>
+
+  <div class="result" id="result">
+    <div class="badge" id="badge"></div>
+    <div class="pick-name" id="pickName"></div>
+    <div class="pick-reason" id="pickReason"></div>
+    <div class="actions">
+      <button id="again">🎲 다시 굴리기</button>
+      <button class="play" id="play">▶ 실행</button>
+    </div>
+  </div>
+
+  <!-- 도전과제 기반 추천 (로그인+동기화 후) -->
+  <div class="ach-section" id="achSection" style="display:none;">
+    <div class="divider">🏆 도전과제 추천</div>
+    <div class="opts" data-group="plusmode">
+      <div class="opt active" data-value="continue">이어하기</div>
+      <div class="opt" data-value="finish">마무리각</div>
+      <div class="opt" data-value="easy">쉬운거</div>
+      <div class="opt" data-value="rare">희귀사냥</div>
+    </div>
+    <div class="result" id="achResult">
+      <div class="pick-name" id="achName"></div>
+      <div class="pick-reason" id="achReason"></div>
+      <div class="ach-list" id="achList"></div>
+      <div class="actions">
+        <button class="play" id="achPlay">▶ 실행</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="count" id="count"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
