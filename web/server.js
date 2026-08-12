@@ -12,6 +12,7 @@ const api = require('../src/steamApi');
 const cacheStore = require('../src/cache');
 const { recommend } = require('../src/recommend');
 const { recommendPlus } = require('../src/recommendPlus');
+const { buildFriendCoop } = require('../src/friendsCoop');
 const openid = require('./src/steamOpenId');
 
 const env = loadEnv(path.join(__dirname, '..', '.env'));
@@ -224,6 +225,26 @@ app.get('/api/recommend-plus', requireAuth, (req, res) => {
   const cache = cacheStore.loadCache(CACHE_DIR, req.session.steamId);
   if (!cache) return res.json({ game: null, reason: '먼저 동기화하세요.', nextAchievements: [] });
   res.json(recommendPlus(cache, req.query.mode || 'continue'));
+});
+
+// 친구 기반 코옵 추천 (온디맨드 — 친구 접속상태가 실시간이라 캐시 안 함)
+const friendResultCache = new Map(); // steamId -> { at, data } (60초 캐시)
+app.get('/api/friends', requireAuth, async (req, res) => {
+  const steamId = req.session.steamId;
+  if (!API_KEY) return res.status(500).json({ error: 'STEAM_API_KEY 미설정' });
+  const cache = cacheStore.loadCache(CACHE_DIR, steamId);
+  if (!cache) return res.json({ games: [], friendCount: 0, reason: '먼저 동기화하세요.' });
+
+  const cached = friendResultCache.get(steamId);
+  if (cached && Date.now() - cached.at < 60 * 1000) return res.json(cached.data);
+
+  try {
+    const data = await buildFriendCoop(API_KEY, steamId, cache.games, CACHE_DIR);
+    friendResultCache.set(steamId, { at: Date.now(), data });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
 });
 
 // 정적 프론트엔드

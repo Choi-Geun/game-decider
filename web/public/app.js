@@ -235,4 +235,66 @@ async function loadAchRecommend() {
   $('achResult').classList.add('show');
 }
 
+// ── 친구랑 할 게임 (코옵) ─────────────────────────────────────────
+let friendLoading = false;
+$('friendBtn').addEventListener('click', loadFriends);
+
+async function loadFriends() {
+  if (friendLoading) return;
+  friendLoading = true;
+  const btn = $('friendBtn');
+  btn.disabled = true;
+  $('friendProgress').classList.remove('hidden');
+  $('friendProgress').textContent = '친구 라이브러리 확인 중… (처음엔 조금 걸려요)';
+  try {
+    const res = await fetch('/api/friends').then((r) => r.json());
+    renderFriends(res);
+  } catch (e) {
+    $('friendProgress').textContent = '❌ 친구 정보를 불러오지 못했어요';
+  }
+  btn.disabled = false;
+  friendLoading = false;
+}
+
+function renderFriends(res) {
+  const list = $('friendList');
+  if (res.error) {
+    $('friendProgress').textContent = '❌ ' + res.error;
+    return;
+  }
+  if (res.privateFriendList || res.friendCount === 0) {
+    $('friendProgress').textContent = '친구 목록이 비공개이거나 친구가 없어요. (Steam 개인정보 → "친구 목록" 공개 확인)';
+    list.innerHTML = '';
+    return;
+  }
+  if (!res.games || !res.games.length) {
+    $('friendProgress').textContent = `친구 ${res.friendCount}명 확인 — 함께 할 코옵/멀티 게임이 없어요 (친구 프로필이 비공개일 수도).`;
+    list.innerHTML = '';
+    return;
+  }
+  $('friendProgress').textContent = `친구 ${res.friendCount}명 중 공개 ${res.publicFriends}명 · 함께 할 게임 ${res.games.length}개`;
+  list.innerHTML = res.games
+    .map((g) => {
+      const tag = g.coop ? '코옵' : '멀티';
+      const owners = g.owners
+        .map((o) => {
+          const av = o.avatar ? `<img src="${o.avatar}" />` : '';
+          const playing = o.playingThis
+            ? ' <span class="playing">▶ 지금 이 게임!</span>'
+            : o.inGameName
+            ? ` <span class="playing">(${o.inGameName})</span>`
+            : '';
+          return `<span class="owner ${o.online ? 'on' : ''}"><span class="dot"></span>${av}${o.name}${playing}</span>`;
+        })
+        .join('');
+      return (
+        `<div class="friend-game"><div class="fg-top">` +
+        `<span class="fg-name">${g.name}</span> <span class="fg-tag">${tag}</span>` +
+        `<a class="fg-play" href="${steamRunUrl(g.appid)}">▶ 실행</a></div>` +
+        `<div class="owners">${owners}</div></div>`
+      );
+    })
+    .join('');
+}
+
 refreshMe();

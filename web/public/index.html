@@ -66,6 +66,20 @@
     .ach-item .ap { font-size: 11px; color: #66c0f4; margin-top: 4px; }
     .ach-warn { background: #2a1e14; border: 1px solid #6b4a1e; color: #f0c98a; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
     .ach-warn-link { display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px; background: #66c0f4; color: #0b1622; font-weight: 700; text-decoration: none; font-size: 13px; }
+    /* 친구 코옵 */
+    .friend-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .friend-game { background: #1c1d24; border: 1px solid #2f3038; border-radius: 12px; padding: 14px; }
+    .friend-game .fg-top { display: flex; align-items: center; gap: 8px; }
+    .friend-game .fg-name { font-size: 16px; font-weight: 700; }
+    .friend-game .fg-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; background: #2a4a63; color: #9fd3f0; }
+    .friend-game .fg-play { margin-left: auto; padding: 8px 12px; border-radius: 8px; background: #2ea043; color: #fff; font-weight: 700; text-decoration: none; font-size: 13px; }
+    .owners { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .owner { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #c4c4d0; background: #14151a; border: 1px solid #2f3038; border-radius: 20px; padding: 3px 8px 3px 3px; }
+    .owner img { width: 22px; height: 22px; border-radius: 50%; }
+    .owner.on { border-color: #2ea043; }
+    .owner .dot { width: 7px; height: 7px; border-radius: 50%; background: #555; }
+    .owner.on .dot { background: #2ea043; }
+    .owner .playing { color: #66c0f4; }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -151,6 +165,12 @@
         <a class="play" id="achPlay" href="#">▶ 실행</a>
       </div>
     </div>
+
+    <!-- 친구랑 할 게임 (코옵) -->
+    <div class="divider">👥 친구랑 할 게임</div>
+    <button class="roll-btn" id="friendBtn" style="background:#2a4a63;">👥 친구랑 할 코옵 게임 찾기</button>
+    <div class="progress hidden" id="friendProgress"></div>
+    <div id="friendList" class="friend-list"></div>
   </div>
 
   <div class="sub" id="loginHint">로그인하면 내 게임으로 추천받을 수 있어요.</div>

@@ -5,10 +5,10 @@ const https = require('https');
 const HOST = 'api.steampowered.com';
 
 // 공통 GET (JSON) — 회사망 SSL 검사 환경에서도 개발되게, 실패 시 명확한 에러.
-function getJson(path) {
+function getJson(path, host = HOST) {
   return new Promise((resolve, reject) => {
     const req = https.request(
-      { hostname: HOST, path, method: 'GET', headers: { accept: 'application/json' } },
+      { hostname: host, path, method: 'GET', headers: { accept: 'application/json' } },
       (res) => {
         let data = '';
         res.on('data', (c) => (data += c));
@@ -97,9 +97,59 @@ async function getGlobalAchievementPercents(appid) {
   }
 }
 
+// 친구 목록 (친구 목록이 공개여야 함). [{ steamid, friend_since }]
+async function getFriendList(apiKey, steamId) {
+  const path = `/ISteamUser/GetFriendList/v1/?key=${apiKey}&steamid=${steamId}&relationship=friend`;
+  try {
+    const j = await getJson(path);
+    return j.friendslist?.friends || [];
+  } catch (_e) {
+    return []; // 401(비공개) 등 → 빈 목록
+  }
+}
+
+// 여러 SteamID의 프로필 요약 (최대 100개). 온라인 상태/현재 게임 포함.
+async function getPlayerSummaries(apiKey, steamIds) {
+  if (!steamIds || !steamIds.length) return [];
+  const ids = steamIds.slice(0, 100).join(',');
+  const path = `/ISteamUser/GetPlayerSummaries/v2/?key=${apiKey}&steamids=${ids}`;
+  const j = await getJson(path);
+  return (j.response?.players || []).map((p) => ({
+    steamid: p.steamid,
+    name: p.personaname,
+    avatar: p.avatarfull || p.avatar,
+    // personastate: 0 오프라인, 1 온라인, 2 바쁨, 3 자리비움, 4 잠깐, 5/6 거래/플레이희망
+    online: (p.personastate || 0) > 0,
+    personastate: p.personastate || 0,
+    // 지금 게임 중이면 gameid/gameextrainfo 존재
+    inGameId: p.gameid ? String(p.gameid) : null,
+    inGameName: p.gameextrainfo || null,
+  }));
+}
+
+// 게임의 카테고리(코옵/멀티 여부) — store appdetails (비공식). 키 불필요.
+async function getAppCategories(appid) {
+  const path = `/api/appdetails?appids=${appid}&filters=categories`;
+  try {
+    const j = await getJson(path, 'store.steampowered.com');
+    const entry = j[String(appid)];
+    if (!entry || !entry.success) return { coop: false, multiplayer: false };
+    const cats = (entry.data?.categories || []).map((c) => (c.description || '').toLowerCase());
+    const has = (kw) => cats.some((c) => c.includes(kw));
+    const coop = has('co-op') || has('co op') || has('coop');
+    const multiplayer = has('multi-player') || has('multiplayer') || has('pvp') || has('online');
+    return { coop, multiplayer: multiplayer || coop };
+  } catch (_e) {
+    return { coop: false, multiplayer: false };
+  }
+}
+
 module.exports = {
   getPlayerSummary,
+  getPlayerSummaries,
   getOwnedGames,
   getPlayerAchievements,
   getGlobalAchievementPercents,
+  getFriendList,
+  getAppCategories,
 };
