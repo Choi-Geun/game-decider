@@ -102,6 +102,7 @@ async function buildFriendCoop(apiKey, steamId, myGames, dir, onProgress) {
     games.push({
       appid,
       name: nameByApp[appid] || appid,
+      images: api.imageUrls(appid),
       coop: !!cat.coop,
       multiplayer: !!cat.multiplayer,
       ownerCount: owners.length,

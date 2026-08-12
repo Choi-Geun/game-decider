@@ -3,6 +3,19 @@
 const https = require('https');
 
 const HOST = 'api.steampowered.com';
+const CDN = 'https://cdn.cloudflare.steamstatic.com/steam/apps';
+
+// appid로 계산되는 Steam 이미지 URL 모음 (키·인증 불필요).
+function imageUrls(appid) {
+  const base = `${CDN}/${appid}`;
+  return {
+    header: `${base}/header.jpg`, // 460x215 배너
+    capsule: `${base}/capsule_616x353.jpg`, // 616x353
+    portrait: `${base}/library_600x900.jpg`, // 세로 포스터
+    hero: `${base}/library_hero.jpg`, // 넓은 배경
+    logo: `${base}/logo.png`, // 투명 로고
+  };
+}
 
 // 공통 GET (JSON) — 회사망 SSL 검사 환경에서도 개발되게, 실패 시 명확한 에러.
 function getJson(path, host = HOST) {
@@ -152,4 +165,5 @@ module.exports = {
   getGlobalAchievementPercents,
   getFriendList,
   getAppCategories,
+  imageUrls,
 };

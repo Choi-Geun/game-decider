@@ -107,7 +107,8 @@ async function syncCache(apiKey, steamId, dir, opts = {}) {
     updatedAt: Math.floor(Date.now() / 1000),
     achievementsBlocked,
     privateCount,
-    games: current.map((g) => ({ ...g, ach: achByApp[g.appid] })),
+    // 각 게임에 Steam 이미지 URL을 함께 캐싱 (appid로 계산, 저장공간 부담 없음)
+    games: current.map((g) => ({ ...g, images: api.imageUrls(g.appid), ach: achByApp[g.appid] })),
   };
   saveCache(dir, steamId, data);
   data._stats = stats;
