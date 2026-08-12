@@ -103,32 +103,81 @@ async function refreshMe() {
     $('achWarn').classList.toggle('hidden', !me.achievementsBlocked);
     loadAchRecommend();
   }
+
+  // 로그인 직후 1회: 자동 동기화(증분) + 주기적 자동 동기화 타이머 (한 번만 세팅)
+  if (!autoSetup) {
+    autoSetup = true;
+    startSync(false); // 캐시 있으면 증분, 없으면 전체
+    setInterval(() => startSync(false), PERIODIC_MS);
+    // 탭을 다시 볼 때도 한 번 갱신
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') startSync(false);
+    });
+  }
 }
 
-// ── 동기화 ───────────────────────────────────────────────────────
-$('sync').addEventListener('click', async () => {
+// ── 동기화 (자동 + 주기 + 증분) ───────────────────────────────────
+let syncing = false;
+let autoSetup = false;
+const PERIODIC_MS = 20 * 60 * 1000; // 20분마다 증분 자동 동기화
+
+// 동기화 상태에 따라 버튼 비활성화 + 라벨 변경
+function setSyncing(on) {
+  syncing = on;
+  const btn = $('sync');
+  btn.disabled = on;
+  btn.classList.toggle('is-syncing', on);
+  btn.textContent = on ? '⏳ 동기화 중…' : '🔄 동기화';
+}
+
+// full=false: 증분(캐시와 비교해 바뀐 게임만). 캐시 없으면 자동으로 전체.
+async function startSync(full) {
+  if (syncing) return;
+  setSyncing(true);
   $('progress').classList.remove('hidden');
-  $('progress').textContent = '동기화 시작...';
-  const r = await fetch('/api/sync', { method: 'POST' }).then((x) => x.json());
-  if (r.error) {
-    $('progress').textContent = '❌ ' + r.error;
-    return;
+  $('progress').textContent = full ? '전체 동기화 시작...' : '변경사항 확인 중...';
+  try {
+    const r = await fetch('/api/sync' + (full ? '?full=1' : ''), { method: 'POST' }).then((x) => x.json());
+    if (r.error) {
+      $('progress').textContent = '❌ ' + r.error;
+      setSyncing(false);
+      return;
+    }
+    pollProgress();
+  } catch (e) {
+    $('progress').textContent = '❌ 동기화 실패';
+    setSyncing(false);
   }
-  pollProgress();
-});
+}
 
 async function pollProgress() {
-  const p = await fetch('/api/sync/progress').then((r) => r.json());
+  let p;
+  try { p = await fetch('/api/sync/progress').then((r) => r.json()); } catch (e) { setSyncing(false); return; }
   if (p.status === 'running') {
-    $('progress').textContent = `동기화 중... ${p.done}/${p.total} — ${p.name || ''}`;
+    $('progress').textContent = p.total
+      ? `동기화 중... ${p.done}/${p.total} — ${p.name || ''}`
+      : '변경사항 확인 중...';
     setTimeout(pollProgress, 1000);
   } else if (p.status === 'done') {
-    $('progress').textContent = `✅ 완료 — 게임 ${p.done}개`;
+    const s = p.stats || {};
+    const parts = [s.fetched ? `✅ ${s.fetched}개 갱신` : '✅ 최신 상태'];
+    if (s.added) parts.push(`새 게임 ${s.added}`);
+    if (s.removed) parts.push(`삭제 ${s.removed}`);
+    $('progress').textContent = parts.join(' · ');
+    setSyncing(false);
     refreshMe();
+    // 잠시 후 상태 메시지 정리 (최신 상태였으면)
+    if (!s.fetched) setTimeout(() => $('progress').classList.add('hidden'), 2500);
   } else if (p.status === 'error') {
     $('progress').textContent = '❌ ' + (p.error || '실패');
+    setSyncing(false);
+  } else {
+    setSyncing(false);
   }
 }
+
+// 수동 동기화 버튼 (증분)
+$('sync').addEventListener('click', () => startSync(false));
 
 $('logout').addEventListener('click', async () => {
   await fetch('/auth/logout', { method: 'POST' });

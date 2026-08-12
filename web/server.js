@@ -2,6 +2,7 @@
 // - API 키는 서버에만 보관 (브라우저에 노출 안 됨).
 // - 각 방문자는 Steam OpenID로 로그인 → 자기 SteamID로 조회.
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 
@@ -23,16 +24,65 @@ const PORT = Number(env.PORT || 3000);
 const BASE_URL = env.BASE_URL || `http://localhost:${PORT}`;
 const CACHE_DIR = path.join(__dirname, '.cache');
 
+const AUTH_SECRET = env.SESSION_SECRET || 'dev-secret-change-me';
+const AUTH_COOKIE = 'gd_auth';
+const AUTH_MAX_AGE = 1000 * 60 * 60 * 24 * 30; // 30일
+
+// SteamID를 HMAC 서명해 쿠키에 담는다 → 서버 재시작/배포해도 로그인 유지(스테이트리스).
+function signId(id) {
+  const sig = crypto.createHmac('sha256', AUTH_SECRET).update(id).digest('hex');
+  return `${id}.${sig}`;
+}
+function verifyId(val) {
+  if (!val || typeof val !== 'string') return null;
+  const i = val.lastIndexOf('.');
+  if (i < 0) return null;
+  const id = val.slice(0, i);
+  const sig = val.slice(i + 1);
+  const expected = crypto.createHmac('sha256', AUTH_SECRET).update(id).digest('hex');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return null;
+  return crypto.timingSafeEqual(a, b) ? id : null;
+}
+function parseCookies(req) {
+  const out = {};
+  const h = req.headers.cookie;
+  if (!h) return out;
+  for (const part of h.split(';')) {
+    const i = part.indexOf('=');
+    if (i > -1) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return out;
+}
+
 const app = express();
 app.use(express.json());
 app.use(
   session({
-    secret: env.SESSION_SECRET || 'dev-secret-change-me',
+    secret: AUTH_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }, // 7일
   })
 );
+
+// 세션이 비어도 서명된 gd_auth 쿠키가 있으면 로그인 자동 복원.
+app.use(async (req, res, next) => {
+  if (!req.session.steamId) {
+    const id = verifyId(parseCookies(req)[AUTH_COOKIE]);
+    if (id) {
+      req.session.steamId = id;
+      if (!req.session.profile) {
+        try {
+          const p = await api.getPlayerSummary(API_KEY, id);
+          if (p) req.session.profile = { name: p.personaname, avatar: p.avatarfull };
+        } catch (_e) {}
+      }
+    }
+  }
+  next();
+});
 
 // 동기화 진행률 (메모리, steamId별)
 const syncJobs = new Map(); // steamId -> { done, total, name, status }
@@ -49,6 +99,13 @@ app.get('/auth/steam/return', async (req, res) => {
   const ok = steamId ? await openid.verifyAssertion(req.query) : false;
   if (ok && steamId) {
     req.session.steamId = steamId;
+    // 서버 재시작에도 로그인 유지되도록 서명된 쿠키 저장
+    res.cookie(AUTH_COOKIE, signId(steamId), {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: AUTH_MAX_AGE,
+      path: '/',
+    });
     // 프로필 이름/아바타 미리 저장
     try {
       const p = await api.getPlayerSummary(API_KEY, steamId);
@@ -81,6 +138,7 @@ display:flex;align-items:center;justify-content:center;height:100vh;margin:0;tex
 }
 
 app.post('/auth/logout', (req, res) => {
+  res.clearCookie(AUTH_COOKIE, { path: '/' });
   req.session.destroy(() => res.json({ ok: true }));
 });
 
@@ -112,16 +170,27 @@ app.post('/api/sync', requireAuth, (req, res) => {
   if (syncJobs.get(steamId)?.status === 'running')
     return res.json({ ok: true, already: true });
 
+  const full = req.query.full === '1'; // 기본은 증분, ?full=1 이면 전체
   syncJobs.set(steamId, { done: 0, total: 0, name: '', status: 'running' });
   // 응답은 즉시 반환하고, 실제 수집은 뒤에서 진행
-  res.json({ ok: true, started: true });
+  res.json({ ok: true, started: true, mode: full ? 'full' : 'incremental' });
 
   cacheStore
-    .buildFullCache(API_KEY, steamId, CACHE_DIR, (done, total, name) => {
-      syncJobs.set(steamId, { done, total, name, status: 'running' });
+    .syncCache(API_KEY, steamId, CACHE_DIR, {
+      full,
+      onProgress: (done, total, name) => {
+        syncJobs.set(steamId, { done, total, name, status: 'running' });
+      },
     })
     .then((data) => {
-      syncJobs.set(steamId, { done: data.games.length, total: data.games.length, name: '', status: 'done' });
+      syncJobs.set(steamId, {
+        done: data._stats.fetched,
+        total: data._stats.fetched,
+        name: '',
+        status: 'done',
+        stats: data._stats,
+        count: data.games.length,
+      });
     })
     .catch((e) => {
       syncJobs.set(steamId, { done: 0, total: 0, name: '', status: 'error', error: String(e.message || e) });
