@@ -1,0 +1,10 @@
+# .pen 은 Pencil 의 암호화 바이너리다. 텍스트로 다루면 줄바꿈 변환(LF↔CRLF)에
+# 내용이 망가진다. 반드시 바이너리로 고정할 것.
+*.pen binary
+
+# 임포트한 디자인 이미지
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.webp binary
