@@ -279,3 +279,88 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   .resume-card { grid-template-columns: 130px 1fr; }
   .resume-card .rc-cover { width: 130px; }
 }
+
+/* ── 수집함 ────────────────────────────────────────────────────────
+   원칙: 하나만 크게. 평평한 격자가 되면 또 대시보드다. */
+:root {
+  --t-legendary: #ffb545;
+  --t-rare: #a78bfa;
+}
+
+.tier-row { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.tier-tile {
+  flex: 1 1 150px; padding: 14px 16px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-left-width: 3px;
+}
+.tier-tile.t-legendary { border-left-color: var(--t-legendary); }
+.tier-tile.t-rare { border-left-color: var(--t-rare); }
+.tier-tile.t-total { border-left-color: var(--line); opacity: .8; }
+.tt-n { display: block; font-size: 30px; font-weight: 800; line-height: 1.1; }
+.tier-tile.t-legendary .tt-n { color: var(--t-legendary); }
+.tier-tile.t-rare .tt-n { color: var(--t-rare); }
+.tt-name { display: block; margin-top: 2px; font-size: 13px; font-weight: 700; }
+.tt-desc { display: block; margin-top: 1px; font-size: 11px; color: var(--muted); }
+
+/* 왕관 — 가장 희귀한 하나. 이 화면의 주인공 */
+.crown-card {
+  position: relative; display: flex; align-items: stretch; gap: 0;
+  border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+  background: var(--panel); border: 1px solid #4a3a1c;
+  box-shadow: 0 0 44px rgba(255, 181, 69, .10);
+}
+.crown-art { width: 300px; flex: none; object-fit: cover; display: block; filter: saturate(.9); }
+.crown-body { padding: 20px 24px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.crown-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--t-legendary); font-weight: 700; }
+.crown-pct { font-size: 42px; font-weight: 800; line-height: 1.05; color: var(--t-legendary); margin: 2px 0 4px; }
+.crown-name { margin: 0; font-size: 21px; font-weight: 800; }
+.crown-game { margin-top: 3px; font-size: 13px; color: var(--muted); }
+.crown-note { margin-top: 10px; font-size: 13px; color: #d4d4de; }
+
+.coll-block { margin-bottom: 26px; }
+.cb-title { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+.cb-sub { margin-left: 10px; font-weight: 400; font-size: 13px; color: var(--muted); }
+.cb-lead { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+
+/* 진열장 — 왕관 뒤의 나머지는 압축 칩으로 */
+.trophy-shelf { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.trophy-shelf.small { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.trophy {
+  display: block; padding: 9px 12px; border-radius: 10px; text-decoration: none; color: inherit;
+  background: var(--panel); border: 1px solid var(--line); border-left-width: 3px;
+  transition: border-color .12s, transform .08s;
+}
+.trophy:hover { transform: translateY(-1px); border-color: #3a3d4d; }
+.trophy.t-legendary { border-left-color: var(--t-legendary); }
+.trophy.t-rare { border-left-color: var(--t-rare); }
+/* 보통·흔함도 색을 준다. 안 주면 칩이 미완성처럼 보인다 (수확 목록엔 섞여 나온다) */
+.trophy.t-normal { border-left-color: #5b7ba8; }
+.trophy.t-common { border-left-color: #4a4d5c; }
+.trophy.t-normal .tr-pct { color: #8fb0dd; }
+.trophy.t-common .tr-pct { color: var(--muted); }
+.tr-pct { font-size: 12px; font-weight: 800; }
+.trophy.t-legendary .tr-pct { color: var(--t-legendary); }
+.trophy.t-rare .tr-pct { color: var(--t-rare); }
+.tr-name { display: block; margin-top: 1px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-game { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 다음 후보 — 수집함이 과거 기록으로 끝나지 않게 하는 장치 */
+.target-list { display: flex; flex-direction: column; gap: 8px; }
+.target {
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+}
+.tg-pct { font-size: 19px; font-weight: 800; flex: none; width: 54px; }
+.tg-pct.t-legendary { color: var(--t-legendary); }
+.tg-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.tg-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-game { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-go {
+  flex: none; padding: 8px 16px; border-radius: 9px; text-decoration: none;
+  background: #2e7d46; color: #fff; font-size: 13px; font-weight: 700;
+}
+.tg-go:hover { background: #349152; }
+
+@media (max-width: 860px) {
+  .crown-card { flex-direction: column; }
+  .crown-art { width: 100%; height: 150px; }
+}

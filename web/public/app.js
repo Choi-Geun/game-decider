@@ -124,6 +124,7 @@ async function loadGames() {
     state.games = d.games || [];
     state.achievementsBlocked = !!d.achievementsBlocked;
     resumeData = null; // 동기화로 진행도가 바뀌었을 수 있으니 다시 계산시킨다
+    collectionData = null;
   } catch (e) {}
   renderView();
   // 최초 1회만 자동 스핀 (동기화 후 재호출돼도 다시 안 돎)
@@ -179,7 +180,7 @@ $('sync').addEventListener('click', () => startSync(false));
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
 //   #spin | #games | #games/{appid} | #ach | #friends
-const VIEWS = ['spin', 'resume', 'games', 'ach', 'friends'];
+const VIEWS = ['spin', 'resume', 'collection', 'games', 'ach', 'friends'];
 
 function parseHash() {
   const raw = (location.hash || '').replace(/^#\/?/, '');
@@ -225,6 +226,7 @@ window.addEventListener('hashchange', applyRoute);
 
 function renderView() {
   if (state.view === 'resume') renderResume();
+  else if (state.view === 'collection') renderCollection();
   else if (state.view === 'games') renderGames();
   else if (state.view === 'ach') renderAch();
   else if (state.view === 'friends') renderFriendsIfLoaded();
@@ -490,6 +492,98 @@ $('resumeContent').addEventListener('click', (e) => {
   const card = e.target.closest('.resume-card');
   if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);
 });
+
+// ── 수집함 ────────────────────────────────────────────────────────
+// 희귀도는 "받을 보상"이 아니라 "해낸 것"의 등급으로 쓴다. 남은 도전과제의 76%가
+// 20% 미만이라 보상 등급으로 쓰면 전부 "희귀"가 되어 의미가 없다.
+// 반대로 이미 딴 것 중 5% 미만은 1.4%뿐 — 여기서만 등급이 실제로 희소하다.
+let collectionData = null, collectionLoading = false;
+
+async function loadCollection() {
+  if (collectionLoading) return;
+  collectionLoading = true;
+  try { collectionData = await fetch('/api/collection').then((r) => r.json()); }
+  catch (e) { collectionData = null; }
+  collectionLoading = false;
+  if (state.view === 'collection') renderCollection();
+}
+
+// 2.1% 보다 "1000명 중 21명"이 훨씬 와닿는다.
+const perThousand = (pct) => Math.max(1, Math.round(pct * 10));
+
+function trophyChip(a) {
+  return `<a class="trophy t-${a.tier}" href="#games/${a.appid}" title="${esc(a.name)} — ${esc(a.gameName)}">
+    <span class="tr-pct">${a.globalPercent}%</span>
+    <span class="tr-name">${esc(a.name)}</span>
+    <span class="tr-game">${esc(a.gameName)}</span>
+  </a>`;
+}
+
+function renderCollection() {
+  const box = $('collectionContent');
+  if (!box) return;
+  if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
+
+  const { counts, crown, showcase, nextTargets, harvest } = collectionData;
+  if (!crown) { box.innerHTML = `<div class="empty">${t('collectionEmpty')}</div>`; return; }
+
+  // 왕관 — 하나만 크게. 이게 없으면 또 평평한 격자가 된다.
+  const crownHtml = `<section class="crown-card">
+    <img class="crown-art" src="${imgHeader(crown)}" data-fallback="${esc(crown.gameName)}">
+    <div class="crown-body">
+      <span class="crown-label">${t('crownLabel')}</span>
+      <div class="crown-pct">${crown.globalPercent}%</div>
+      <h3 class="crown-name">${esc(crown.name)}</h3>
+      <div class="crown-game">${esc(crown.gameName)}${crown.unlockTime ? ` · ${fmtDate(crown.unlockTime)}` : ''}</div>
+      <div class="crown-note">${t('crownOutOf', { n: perThousand(crown.globalPercent) })}</div>
+    </div>
+  </section>`;
+
+  // 등급 요약 — 전설 개수가 헤드라인이다
+  const tiles = [
+    { key: 'legendary', n: counts.legendary },
+    { key: 'rare', n: counts.rare },
+  ].map((x) => `<div class="tier-tile t-${x.key}">
+      <span class="tt-n">${x.n}</span>
+      <span class="tt-name">${t('tier' + x.key.charAt(0).toUpperCase() + x.key.slice(1))}</span>
+      <span class="tt-desc">${t(x.key === 'legendary' ? 'tierLegendaryDesc' : 'tierRareDesc')}</span>
+    </div>`).join('');
+  const tilesHtml = `<div class="tier-row">${tiles}
+    <div class="tier-tile t-total"><span class="tt-n">${counts.total}</span>
+      <span class="tt-name">${t('tierTotal')}</span></div>
+  </div>`;
+
+  const shelf = showcase.length
+    ? `<section class="coll-block"><div class="trophy-shelf">${showcase.map(trophyChip).join('')}</div></section>`
+    : '';
+
+  // 앞으로 향하게 하는 유일한 장치. 이게 없으면 수집함은 과거 기록일 뿐이다.
+  const nextHtml = nextTargets.length
+    ? `<section class="coll-block">
+        <h3 class="cb-title">${t('nextTargetTitle', { n: counts.legendary + 1 })}</h3>
+        <p class="cb-lead">${t('nextTargetLead')}</p>
+        <div class="target-list">${nextTargets.map((x) => `
+          <div class="target">
+            <span class="tg-pct t-legendary">${x.globalPercent}%</span>
+            <span class="tg-body">
+              <span class="tg-name">${esc(x.name)}</span>
+              <span class="tg-game">${esc(x.gameName)} · ${t('nextTargetPlayed', { h: Math.round(x.playtimeMinutes / 60) })}</span>
+            </span>
+            <a class="tg-go" href="${steamRunUrl(x.appid)}">▶ ${t('challenge')}</a>
+          </div>`).join('')}</div>
+      </section>`
+    : '';
+
+  const harvestHtml = `<section class="coll-block">
+    <h3 class="cb-title">${t('harvestTitle', { d: harvest.days })}
+      <span class="cb-sub">${harvest.count ? t('collectionCount', { n: harvest.count }) + (harvest.rarest ? ' · ' + t('harvestRarest', { p: harvest.rarest.globalPercent }) : '') : ''}</span></h3>
+    ${harvest.count
+      ? `<div class="trophy-shelf small">${harvest.items.map(trophyChip).join('')}</div>`
+      : `<div class="empty">${t('harvestNone')}</div>`}
+  </section>`;
+
+  box.innerHTML = tilesHtml + crownHtml + shelf + nextHtml + harvestHtml;
+}
 
 // ── 게임 상세 ─────────────────────────────────────────────────────
 const detailCache = {};

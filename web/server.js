@@ -15,6 +15,7 @@ const { recommendPlus } = require('../src/recommendPlus');
 const { buildFriendCoop } = require('../src/friendsCoop');
 const { buildGameDetail } = require('../src/gameDetail');
 const { buildResume } = require('../src/resume');
+const { buildCollection } = require('../src/collection');
 const openid = require('./src/steamOpenId');
 
 const env = loadEnv(path.join(__dirname, '..', '.env'));
@@ -259,6 +260,13 @@ app.get('/api/resume', requireAuth, (req, res) => {
   if (!cache) return res.json({ active: [], dropped: [], summary: {}, droppedTotal: 0 });
   const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 50);
   res.json(buildResume(cache, { limit }));
+});
+
+// 수집함 — 이미 딴 것 중 희귀한 것들. 캐시만 쓴다.
+app.get('/api/collection', requireAuth, (req, res) => {
+  const cache = cacheStore.loadCache(CACHE_DIR, req.session.steamId);
+  if (!cache) return res.json({ counts: { total: 0 }, crown: null, showcase: [], nextTargets: [], harvest: { count: 0, items: [] } });
+  res.json(buildCollection(cache));
 });
 
 // 도전과제/이어하기 기반
