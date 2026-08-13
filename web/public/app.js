@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const steamRunUrl = (appid) => `steam://run/${appid}`;
 const imgHeader = (g) => (g.images && g.images.header) || `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.appid}/header.jpg`;
+const imgPortrait = (g) => (g.images && g.images.portrait) || `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.appid}/library_600x900.jpg`;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function fmtDate(unix) {
   if (!unix) return '';
@@ -9,7 +10,7 @@ function fmtDate(unix) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'status', lastPick: null };
+const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'status', lastPick: null, didInitialSpin: false };
 
 // ── 언어 전환 ─────────────────────────────────────────────────────
 document.querySelectorAll('.lang-switch button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
@@ -81,7 +82,11 @@ async function loadGames() {
     state.achievementsBlocked = !!d.achievementsBlocked;
   } catch (e) {}
   renderView();
-  if (state.view === 'spin' && state.games.length && !state.lastPick) spin();
+  // 최초 1회만 자동 스핀 (동기화 후 재호출돼도 다시 안 돎)
+  if (state.view === 'spin' && state.games.length && !state.didInitialSpin) {
+    state.didInitialSpin = true;
+    spin();
+  }
 }
 
 // ── 동기화 ────────────────────────────────────────────────────────
@@ -135,7 +140,13 @@ document.querySelectorAll('.nav-item').forEach((b) => b.addEventListener('click'
   document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
   $('view-' + state.view).classList.remove('hidden');
   renderView();
-  if (state.view === 'spin' && state.games.length && !state.lastPick) spin();
+  // 스핀 탭으로 처음 왔는데 아직 한 번도 안 돌았으면 1회 스핀
+  if (state.view === 'spin' && state.games.length && !state.didInitialSpin) {
+    state.didInitialSpin = true;
+    spin();
+  } else if (state.view === 'spin' && state.lastPick) {
+    layoutStatic();
+  }
 }));
 
 function renderView() {
@@ -144,50 +155,104 @@ function renderView() {
   else if (state.view === 'friends') renderFriendsIfLoaded();
 }
 
-// ── 슬롯 스핀 ─────────────────────────────────────────────────────
-function pickReason(g) {
+// ── 이유 문구 생성기 (게임 상태 기반, 다양하게) ───────────────────
+function seededPick(arr, appid) {
+  let h = 0; const s = String(appid);
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return arr[h % arr.length];
+}
+function reasonFor(g) {
   const pt = g.playtimeMinutes || 0;
-  const pct = g.ach && g.ach.completionPct;
-  if (pt === 0) return t('reasonNever');
-  if (pct != null && pct >= 50 && pct < 100) return t('reasonFinish', { pct });
-  if ((g.playtime2weeks || 0) > 0) return t('reasonRecent');
-  if (pt >= 6000) return t('reasonFav', { hours: Math.round(pt / 60) });
-  if (pt < 120) return t('reasonBacklog', { hours: Math.max(1, Math.round(pt / 60)) });
-  return t('reasonDefault');
+  const w = g.playtime2weeks || 0;
+  const ach = g.ach && g.ach.hasAchievements ? g.ach : null;
+  const pct = ach ? ach.completionPct : null;
+  const locked = ach ? ach.achievements.filter((a) => !a.achieved && a.globalPercent != null) : [];
+  const rare = locked.length ? Math.min(...locked.map((a) => a.globalPercent)) : null;
+  const easyLeft = locked.filter((a) => a.globalPercent >= 50).length;
+  const vars = { h: Math.round(pt / 60), w, pct, u: ach ? ach.unlocked : 0, t: ach ? ach.total : 0, rare: rare != null ? rare.toFixed(1) : '', left: easyLeft };
+
+  let key;
+  if (pt === 0) key = 'never';
+  else if (pt < 60) key = 'backlog';
+  else if (pct === 100) key = 'completed';
+  else if (pct != null && pct >= 80) key = 'almost';
+  else if (rare != null && rare <= 5) key = 'rare';
+  else if (w > 0) key = 'recent';
+  else if (pct != null && pct >= 40) key = 'halfway';
+  else if (easyLeft > 0) key = 'easy';
+  else if (pt >= 6000) key = 'favorite';
+  else key = 'default';
+
+  const pool = (REASONS[LANG] && REASONS[LANG][key]) || REASONS.ko[key] || REASONS.ko.default;
+  let s = seededPick(pool, g.appid + key);
+  for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+
+// ── 3D 커버플로우 슬롯 (주크박스식) ───────────────────────────────
+let deck = [], cardEls = [], animId = null, curPos = 0, landIndex = 0;
+function cardSpacing() {
+  const w = cardEls[0] ? cardEls[0].offsetWidth : 220;
+  return Math.max(90, w * 0.62);
+}
+function layout(position) {
+  const spacing = cardSpacing();
+  for (let i = 0; i < cardEls.length; i++) {
+    const el = cardEls[i];
+    const d = i - position;
+    const ad = Math.abs(d);
+    if (ad > 4.2) { el.style.visibility = 'hidden'; continue; }
+    el.style.visibility = 'visible';
+    const clamp = Math.max(-1, Math.min(1, d));
+    const x = d * spacing;
+    const z = -ad * 240;
+    const ry = -clamp * 58; // 옆 카드는 안쪽으로 회전
+    const scale = 1 - Math.min(ad, 3) * 0.07;
+    el.style.transform = `translate(-50%,-50%) translateX(${x}px) translateZ(${z}px) rotateY(${ry}deg) scale(${scale})`;
+    el.style.zIndex = String(200 - Math.round(ad * 10));
+    el.style.opacity = ad > 3.6 ? '0' : '1';
+    el.classList.toggle('center', ad < 0.5);
+  }
+}
+function layoutStatic() { if (cardEls.length) layout(landIndex); }
+function renderDeck() {
+  const cf = $('coverflow');
+  cf.innerHTML = deck.map((g) => `<div class="cf-card"><img src="${imgPortrait(g)}" onerror="this.onerror=null;this.src='${imgHeader(g)}'"></div>`).join('');
+  cardEls = Array.from(cf.children);
 }
 function showPick(g) {
   if (!g) { $('pickName').textContent = ''; $('pickReason').textContent = t('spinNeedGames'); $('pick').classList.add('show'); return; }
   state.lastPick = g;
   $('pickName').textContent = g.name;
-  $('pickReason').textContent = pickReason(g);
+  $('pickReason').textContent = reasonFor(g);
   $('pickPlay').href = steamRunUrl(g.appid);
   $('pick').classList.add('show');
 }
 function spin() {
   if (!state.games.length) { showPick(null); return; }
-  const chosen = state.games[Math.floor(Math.random() * state.games.length)];
-  const LEN = 45, LAND = 38;
-  const track = $('reelTrack');
-  let html = '';
-  for (let i = 0; i < LEN; i++) {
-    const g = i === LAND ? chosen : state.games[Math.floor(Math.random() * state.games.length)];
-    html += `<div class="reel-card${i === LAND ? ' win' : ''}"><img src="${imgHeader(g)}" onerror="this.style.opacity=.12"></div>`;
-  }
-  track.innerHTML = html;
-  track.style.transition = 'none';
-  track.style.transform = 'translateX(0)';
-  void track.offsetWidth;
-  const viewport = track.parentElement;
-  const landEl = track.children[LAND];
-  const target = viewport.clientWidth / 2 - (landEl.offsetLeft + landEl.offsetWidth / 2);
+  const rand = () => state.games[Math.floor(Math.random() * state.games.length)];
+  const chosen = rand();
+  const LEN = 28; landIndex = 22;
+  deck = [];
+  for (let i = 0; i < LEN; i++) deck.push(i === landIndex ? chosen : rand());
+  renderDeck();
+  layout(0);
   $('reroll').disabled = true;
   $('pick').classList.remove('show');
-  track.style.transition = 'transform 3s cubic-bezier(.12,.72,.16,1)';
-  track.style.transform = `translateX(${target}px)`;
-  const done = () => { track.removeEventListener('transitionend', done); $('reroll').disabled = false; showPick(chosen); };
-  track.addEventListener('transitionend', done);
+  const dur = 3200, t0 = performance.now();
+  const ease = (x) => 1 - Math.pow(1 - x, 3);
+  cancelAnimationFrame(animId);
+  const frame = (now) => {
+    const p = Math.min(1, (now - t0) / dur);
+    curPos = landIndex * ease(p);
+    layout(curPos);
+    if (p < 1) animId = requestAnimationFrame(frame);
+    else { $('reroll').disabled = false; showPick(chosen); }
+  };
+  animId = requestAnimationFrame(frame);
 }
 $('reroll').addEventListener('click', spin);
+window.addEventListener('resize', () => { if (state.view === 'spin' && cardEls.length && $('reroll').disabled === false) layoutStatic(); });
 
 // ── 내 게임 ───────────────────────────────────────────────────────
 function renderGames() {

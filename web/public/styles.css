@@ -24,6 +24,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 
 /* ── 로그인 화면 ── */
 .login-screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(1200px 600px at 50% -10%, #1a2340, var(--bg)); }
+.corner-lang { position: fixed; top: 18px; right: 18px; width: auto; z-index: 10; }
 .login-box { text-align: center; padding: 40px; }
 .login-logo { font-size: 64px; }
 .login-box h1 { font-size: 30px; margin: 8px 0; }
@@ -59,22 +60,20 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .logout { padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
 
 /* ── 메인 ── */
-.main { padding: 34px 40px; max-width: 1100px; }
+.main { padding: 28px 40px; width: 100%; min-width: 0; }
 .view { animation: fade .25s ease; }
+.view > h2, .view > .view-sub, #view-games .search, #view-games .game-grid, #view-ach .subtabs, #view-ach .ach-content, #view-ach .ach-warn, #view-friends .reroll, #view-friends .friend-list, #view-friends .progress { max-width: 1100px; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-/* ── 슬롯 릴 ── */
-.reel-viewport { position: relative; height: 240px; overflow: hidden; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
-.reel-track { display: flex; gap: 14px; padding: 20px 0; height: 100%; align-items: center; will-change: transform; }
-.reel-card { flex: 0 0 auto; width: 300px; height: 180px; border-radius: 12px; overflow: hidden; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.35); }
-.reel-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.reel-card.win { outline: 3px solid var(--accent); }
-.reel-frame { position: absolute; top: 12px; bottom: 12px; left: 50%; width: 306px; transform: translateX(-50%); border: 3px solid var(--accent); border-radius: 14px; pointer-events: none; box-shadow: 0 0 30px rgba(91,108,255,.4); }
-.reel-fade { position: absolute; top: 0; bottom: 0; width: 120px; pointer-events: none; z-index: 2; }
-.reel-fade.left { left: 0; background: linear-gradient(90deg, var(--panel), transparent); }
-.reel-fade.right { right: 0; background: linear-gradient(270deg, var(--panel), transparent); }
+/* ── 3D 커버플로우 슬롯 (주크박스) ── */
+.spin-view { display: flex; flex-direction: column; height: calc(100vh - 56px); }
+.spin-stage { position: relative; width: 100%; flex: 1; min-height: 320px; perspective: 1500px; perspective-origin: 50% 45%; overflow: hidden; background: radial-gradient(120% 90% at 50% 20%, #1a2030, var(--bg)); border-radius: 18px; border: 1px solid var(--line); }
+.coverflow { position: absolute; inset: 0; transform-style: preserve-3d; }
+.cf-card { position: absolute; left: 50%; top: 50%; width: clamp(150px, 17vw, 300px); aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 24px 46px rgba(0,0,0,.55); backface-visibility: hidden; }
+.cf-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cf-card.center { outline: 3px solid var(--accent); box-shadow: 0 0 60px rgba(91,108,255,.55), 0 24px 46px rgba(0,0,0,.55); }
 
-.reroll { display: block; margin: 20px auto 0; padding: 15px 40px; border: none; border-radius: 14px; background: linear-gradient(90deg, #5b6cff, #7c5bff); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 22px rgba(91,108,255,.35); transition: transform .08s; }
+.reroll { display: block; margin: 18px auto 0; padding: 15px 44px; border: none; border-radius: 14px; background: linear-gradient(90deg, #5b6cff, #7c5bff); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 22px rgba(91,108,255,.35); transition: transform .08s; }
 .reroll:hover { transform: translateY(-1px); }
 .reroll:active { transform: scale(.98); }
 .reroll:disabled { opacity: .6; cursor: not-allowed; }
@@ -156,7 +155,8 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   .lnb { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
   .lnb-nav { flex-direction: row; flex-wrap: wrap; margin: 0; }
   .lnb-bottom { margin: 0 0 0 auto; flex-direction: row; }
-  .main { padding: 20px; }
-  .reel-card { width: 220px; height: 130px; }
-  .reel-frame { width: 226px; }
+  .main { padding: 16px; }
+  .spin-view { height: auto; }
+  .spin-stage { height: 60vh; flex: none; }
+  .cf-card { width: clamp(120px, 42vw, 200px); }
 }

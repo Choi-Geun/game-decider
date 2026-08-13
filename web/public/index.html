@@ -9,14 +9,14 @@
 <body>
   <!-- 로그인 화면 -->
   <div id="loginScreen" class="login-screen">
+    <div class="corner-lang lang-switch" id="langSwitchLogin">
+      <button data-lang="ko">한국어</button><button data-lang="en">English</button>
+    </div>
     <div class="login-box">
       <div class="login-logo">🎮</div>
       <h1 data-i18n="appTitle">지금 뭐 켜지</h1>
       <p class="login-desc" data-i18n="loginDesc">Steam 라이브러리에서 오늘 켤 게임을 골라줄게요.</p>
       <button class="steam-login" id="login">🔑 <span data-i18n="loginBtn">Steam으로 로그인</span></button>
-      <div class="lang-switch" id="langSwitchLogin">
-        <button data-lang="ko">한국어</button><button data-lang="en">English</button>
-      </div>
     </div>
   </div>
 
@@ -54,14 +54,9 @@
     <!-- 메인 -->
     <main class="main">
       <!-- 뷰: 랜덤 스핀 -->
-      <section id="view-spin" class="view">
-        <h2 data-i18n="spinTitle">오늘 뭐 켜지?</h2>
-        <p class="view-sub" data-i18n="spinSub">버튼을 눌러 라이브러리를 돌려보세요.</p>
-        <div class="reel-viewport">
-          <div class="reel-track" id="reelTrack"></div>
-          <div class="reel-frame"></div>
-          <div class="reel-fade left"></div>
-          <div class="reel-fade right"></div>
+      <section id="view-spin" class="view spin-view">
+        <div class="spin-stage" id="spinStage">
+          <div class="coverflow" id="coverflow"></div>
         </div>
         <button class="reroll" id="reroll">🎲 <span data-i18n="reroll">돌려!</span></button>
         <div class="pick" id="pick">

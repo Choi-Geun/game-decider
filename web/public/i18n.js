@@ -168,3 +168,32 @@ function setLang(l) {
   applyI18n();
   if (window.onLangChange) window.onLangChange();
 }
+
+// 게임 상태별 이유 문구 풀 — {h}시간 {w}분 {pct}% {u}/{t} {rare}% {left}개
+const REASONS = {
+  ko: {
+    never: ['한 번도 안 켜봤네요. 오늘이 데뷔전! 🎬', '설치만 하고 방치 중… 첫 판 갑시다 🎬', '미개봉 신상. 지금 뜯을 때예요 📦', '플레이타임 0시간, 완전 백지! 첫인상 남기러 가죠 ✨'],
+    backlog: ['산 지 오래인데 겨우 {h}시간. 이제 진짜 할 때 📦', '{h}시간밖에 안 했어요. 방치는 이제 그만 🧹', '위시리스트의 한을 풀 시간, {h}시간짜리 각 🎯'],
+    recent: ['최근에 {w}분이나 잡았잖아요. 이어서 고고 ▶', '요즘 손이 가는 게임, 흐름 끊지 말고 계속 🔥', '이거 한창 재밌을 때죠? {w}분의 여운 이어가기 ▶'],
+    almost: ['도전과제 {pct}%! 조금만 더 하면 100% 🏁', '{t}개 중 {u}개 달성 — 완주 코앞이에요 🏁', '{pct}% 왔는데 여기서 멈추긴 아깝죠 🏆'],
+    halfway: ['도전과제 {pct}% 진행 중, 딱 반환점 💪', '{u}/{t} 달성 — 아직 파볼 게 많아요 ⛏️', '절반쯤 왔어요. 오늘 좀 더 밀어붙일까요? 💪'],
+    completed: ['이미 100% 마스터한 인생겜, 그래도 또? 👑', '도전과제 올클리어! 순수 재미로 다시 🎮', '{t}개 다 깬 완전정복작. 회귀 플레이 각 👑'],
+    rare: ['희귀 도전과제 {rare}%짜리가 남아있어요. 자랑각 💎', '전역 {rare}% 그 도전과제, 오늘 따버릴까요? 💎', '레어 트로피 사냥 시간 — {rare}% 도전 🏹'],
+    easy: ['쉬운 도전과제 {left}개 남음, 금방 딸 수 있어요 ⚡', '거저 주는 도전과제 {left}개가 기다려요 ⚡', '{left}개만 더 따면 기분 좋아지는 게임 😎'],
+    favorite: ['{h}시간 플레이한 최애, 안 켤 이유가? ❤️', '이미 {h}시간… 그럼에도 또 당기죠 ❤️', '인생겜 {h}시간의 주인공, 오늘도 함께 🎮'],
+    default: ['오늘의 운명픽 ✨', '고민 끝, 그냥 이거 켜요 🎯', '슬롯이 골랐으니 믿고 가보죠 🎰', '왠지 오늘은 이거예요 🍀'],
+  },
+  en: {
+    never: ["Never launched this — today's the debut! 🎬", 'Installed and forgotten… first run time 🎬', 'Still shrink-wrapped. Time to unbox 📦', '0 hours played — a blank slate. Go make a first impression ✨'],
+    backlog: ['Owned forever, only {h}h in. Time to dive 📦', "Just {h}h so far — end the backlog 🧹", 'Redeem that wishlist buy — {h}h and counting 🎯'],
+    recent: ["You put {w}min into it lately — keep going ▶", "You're on a roll, don't break the flow 🔥", 'Still in the good part? Ride the momentum ▶'],
+    almost: ['{pct}% achievements — so close to 100%! 🏁', '{u} of {t} done — the finish line is right there 🏁', "{pct}% in, too good to stop now 🏆"],
+    halfway: ['{pct}% through achievements — halfway there 💪', '{u}/{t} unlocked — plenty left to dig 🛠️', 'About halfway. Push a little further today? 💪'],
+    completed: ['Already 100% mastered — round two? 👑', 'All achievements done! Replay for pure fun 🎮', 'Fully conquered all {t}. Time for a comeback 👑'],
+    rare: ['A {rare}% rare achievement is still yours to grab 💎', 'That {rare}%-global trophy — snag it today? 💎', 'Rare trophy hunt — go for the {rare}% one 🏹'],
+    easy: ['{left} easy achievements left — quick wins ⚡', '{left} freebie achievements are waiting ⚡', 'Just {left} more for that feel-good ding 😎'],
+    favorite: ["{h}h played — a favorite. Why not? ❤️", 'Already {h}h and still calling you ❤️', 'Star of your {h}h library, once more 🎮'],
+    default: ["Today's fate pick ✨", 'Stop overthinking — just play this 🎯', 'The slot chose it, so trust it 🎰', 'Feels like a this-one kind of day 🍀'],
+  },
+};
+
