@@ -506,3 +506,5 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 #view-daily { display: flex; flex-direction: column; min-height: calc(100vh - 56px); }
 #dailyContent { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 @media (max-width: 900px) { #view-daily { height: auto; } .draw-card { width: 100%; height: auto; } }
+
+.rg-sub { margin: -6px 0 12px; font-size: 12px; color: var(--muted); }

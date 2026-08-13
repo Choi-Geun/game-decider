@@ -481,7 +481,9 @@ function renderResume() {
 
   let html = '';
   if (active.length) {
-    html += `<section class="resume-group"><h3 class="rg-title">${t('resumeActive')}</h3>
+    html += `<section class="resume-group">
+      <h3 class="rg-title">${t('resumeActive')}</h3>
+      <p class="rg-sub">${t('resumeActiveSub')}</p>
       <div class="resume-list">${active.map((c) => resumeCardHtml(c, true)).join('')}</div></section>`;
   }
   if (dropped.length) {
@@ -741,7 +743,7 @@ function renderTargets(box) {
   // 다음 전설 후보 — 이 탭의 머리. 남은 전설 중 가장 손에 닿는 것들
   const nextHtml = nextTargets.length
     ? `<section class="coll-block">
-        <h3 class="cb-title">${t('nextTargetTitle', { n: (counts.legendary || 0) + 1 })}</h3>
+        <h3 class="cb-title">${t('nextTargetTitle')}</h3>
         <p class="cb-lead">${t('nextTargetLead')}</p>
         <div class="target-list">${nextTargets.map((x) => {
           const g = { appid: x.appid, name: x.gameName, images: x.images };
