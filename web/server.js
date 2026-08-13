@@ -139,6 +139,36 @@ display:flex;align-items:center;justify-content:center;height:100vh;margin:0;tex
 </script></body></html>`;
 }
 
+// ── 개발 전용 로그인 ─────────────────────────────────────────────
+// 디자인/테스트용. Steam OpenID를 거치지 않고 바로 로그인 상태를 만든다.
+// 이중 게이트: ① .env 에 DEV_LOGIN_STEAMID 가 있어야 하고 ② 요청 호스트가 localhost 여야 한다.
+// 배포 환경에는 DEV_LOGIN_STEAMID 를 넣지 말 것 (없으면 404로 존재 자체가 감춰짐).
+const DEV_LOGIN_STEAMID = env.DEV_LOGIN_STEAMID;
+
+function isLocalRequest(req) {
+  const host = (req.hostname || '').toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+
+app.get('/dev/login', async (req, res) => {
+  if (!DEV_LOGIN_STEAMID || !isLocalRequest(req)) return res.status(404).end();
+
+  req.session.steamId = DEV_LOGIN_STEAMID;
+  res.cookie(AUTH_COOKIE, signId(DEV_LOGIN_STEAMID), {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: AUTH_MAX_AGE,
+    path: '/',
+  });
+  if (!req.session.profile) {
+    try {
+      const p = await api.getPlayerSummary(API_KEY, DEV_LOGIN_STEAMID);
+      if (p) req.session.profile = { name: p.personaname, avatar: p.avatarfull };
+    } catch (_e) {}
+  }
+  res.redirect('/');
+});
+
 app.post('/auth/logout', (req, res) => {
   res.clearCookie(AUTH_COOKIE, { path: '/' });
   req.session.destroy(() => res.json({ ok: true }));

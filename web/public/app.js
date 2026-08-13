@@ -60,6 +60,7 @@ async function refreshMe() {
   $('loginScreen').classList.add('hidden');
   $('app').classList.remove('hidden');
   renderProfile();
+  applyRoute(); // 해시로 초기 뷰 결정 (새로고침·딥링크 유지)
   await loadGames();
   if (!autoSetup) {
     autoSetup = true;
@@ -134,23 +135,52 @@ async function refreshMeLight() {
 }
 $('sync').addEventListener('click', () => startSync(false));
 
-// ── 네비게이션 ────────────────────────────────────────────────────
-document.querySelectorAll('.nav-item').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.nav-item').forEach((x) => x.classList.remove('active'));
-  b.classList.add('active');
-  state.view = b.dataset.view;
+// ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
+// URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
+//   #spin | #games | #games/{appid} | #ach | #friends
+const VIEWS = ['spin', 'games', 'ach', 'friends'];
+
+function parseHash() {
+  const raw = (location.hash || '').replace(/^#\/?/, '');
+  const [view, param] = raw.split('/');
+  return { view: VIEWS.includes(view) ? view : 'spin', param: param || null };
+}
+
+// 뷰 전환의 단일 진입점 — 해시가 바뀔 때만 호출된다.
+function applyRoute() {
+  const { view, param } = parseHash();
+  state.view = view;
+
+  document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
   document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
-  $('view-' + state.view).classList.remove('hidden');
-  if (state.view === 'games') closeDetail(); // 게임 탭 진입 시 목록으로 리셋
+  $('view-' + view).classList.remove('hidden');
+
+  if (view === 'games') {
+    const appid = param ? Number(param) : null;
+    if (appid) { if (state.detailAppid !== appid) openDetail(appid); }
+    else closeDetail();
+  }
   renderView();
+
   // 스핀 탭으로 처음 왔는데 아직 한 번도 안 돌았으면 1회 스핀
-  if (state.view === 'spin' && state.games.length && !state.didInitialSpin) {
+  if (view === 'spin' && state.games.length && !state.didInitialSpin) {
     state.didInitialSpin = true;
     spin();
-  } else if (state.view === 'spin' && state.lastPick) {
+  } else if (view === 'spin' && state.lastPick) {
     layoutStatic();
   }
-}));
+}
+
+function navigate(hash) {
+  const next = '#' + hash;
+  if (location.hash === next) applyRoute(); // 같은 해시 재클릭 → hashchange 안 뜨므로 직접 호출
+  else location.hash = next;
+}
+
+document.querySelectorAll('.nav-item').forEach((b) =>
+  b.addEventListener('click', () => navigate(b.dataset.view))
+);
+window.addEventListener('hashchange', applyRoute);
 
 function renderView() {
   if (state.view === 'games') renderGames();
@@ -315,7 +345,7 @@ function renderGames() {
 $('gameSearch').addEventListener('input', renderGames);
 $('gameGrid').addEventListener('click', (e) => {
   const card = e.target.closest('.game-card');
-  if (card && card.dataset.appid) openDetail(card.dataset.appid);
+  if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);
 });
 
 // ── 게임 상세 ─────────────────────────────────────────────────────
@@ -326,17 +356,18 @@ function closeDetail() {
   $('gamesBrowse').classList.remove('hidden');
 }
 async function openDetail(appid) {
+  appid = Number(appid);
   state.detailAppid = appid;
   $('gamesBrowse').classList.add('hidden');
   const box = $('gameDetail');
   box.classList.remove('hidden');
   box.innerHTML = `<button class="detail-back" id="detailBack">${t('back')}</button><div class="empty">${t('loading')}</div>`;
-  $('detailBack').onclick = closeDetail;
+  $('detailBack').onclick = () => navigate('games');
   const key = appid + '_' + LANG;
   let data = detailCache[key];
   if (!data) {
     try { data = await fetch('/api/game/' + appid + '?lang=' + LANG).then((r) => r.json()); detailCache[key] = data; }
-    catch (e) { box.innerHTML = `<button class="detail-back" id="detailBack">${t('back')}</button><div class="empty">${t('friendFail')}</div>`; $('detailBack').onclick = closeDetail; return; }
+    catch (e) { box.innerHTML = `<button class="detail-back" id="detailBack">${t('back')}</button><div class="empty">${t('friendFail')}</div>`; $('detailBack').onclick = () => navigate('games'); return; }
   }
   if (state.detailAppid !== appid) return; // 그 사이 뒤로 감
   renderDetail(appid, data);
@@ -412,7 +443,7 @@ function renderDetail(appid, d) {
     `<div class="detail-actions"><a class="d-play" href="${steamRunUrl(appid)}">${t('dPlay')}</a><a class="d-steam" href="https://store.steampowered.com/app/${appid}" target="_blank" rel="noopener">${t('dSteam')}</a></div>` +
     (info.shortDescription ? `<div class="detail-desc">${esc(info.shortDescription)}</div>` : '') +
     `<div class="detail-grid">${progCard}${revCard}${achCard}${newsCard}${dlcCard}</div>`;
-  $('detailBack').onclick = closeDetail;
+  $('detailBack').onclick = () => navigate('games');
 }
 
 // ── 도전과제 ──────────────────────────────────────────────────────
