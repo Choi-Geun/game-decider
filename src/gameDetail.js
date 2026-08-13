@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const api = require('./steamApi');
+const { filterNewsByLang } = require('./newsLang');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const TTL = 6 * 60 * 60 * 1000; // 6시간
@@ -42,11 +43,14 @@ async function buildGameDetail(appid, lang, dir, nowMs) {
   const cached = loadDetail(dir, appid);
   if (cached && cached.lang === lang && nowMs - cached.at < TTL) return cached;
 
-  const [details, news, reviews] = await Promise.all([
+  const [details, rawNews, reviews] = await Promise.all([
     api.getAppDetails(appid, lang),
-    api.getNewsForApp(appid, 4, 400),
+    // 다른 문자권을 걸러낼 걸 감안해 넉넉히 받는다. Steam 뉴스 API 에는
+    // 언어 필터가 없어서 러시아·중국 매체 피드가 그대로 섞여 온다.
+    api.getNewsForApp(appid, 20, 400),
     api.getAppReviews(appid),
   ]);
+  const news = filterNewsByLang(rawNews, lang, 4);
 
   // DLC 이름 해석 (최대 8개)
   const dlcIds = (details && details.dlc) || [];
