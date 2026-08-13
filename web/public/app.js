@@ -17,6 +17,8 @@ document.querySelectorAll('.lang-switch button').forEach((b) => b.addEventListen
 window.onLangChange = () => {
   renderProfile();
   renderView();
+  if (state.detailAppid) openDetail(state.detailAppid); // 새 언어로 상세 재조회
+  if (state.lastPick) showPick(state.lastPick); // 이유/제안 문구 새 언어로
 };
 
 // ── 로그인 ────────────────────────────────────────────────────────
@@ -139,6 +141,7 @@ document.querySelectorAll('.nav-item').forEach((b) => b.addEventListener('click'
   state.view = b.dataset.view;
   document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
   $('view-' + state.view).classList.remove('hidden');
+  if (state.view === 'games') closeDetail(); // 게임 탭 진입 시 목록으로 리셋
   renderView();
   // 스핀 탭으로 처음 왔는데 아직 한 번도 안 돌았으면 1회 스핀
   if (state.view === 'spin' && state.games.length && !state.didInitialSpin) {
@@ -189,70 +192,112 @@ function reasonFor(g) {
   return s;
 }
 
-// ── 3D 커버플로우 슬롯 (주크박스식) ───────────────────────────────
-let deck = [], cardEls = [], animId = null, curPos = 0, landIndex = 0;
-function cardSpacing() {
-  const w = cardEls[0] ? cardEls[0].offsetWidth : 220;
-  return Math.max(90, w * 0.62);
+// 다음에 할 콘텐츠 제안 (도전과제/진척도 기반)
+function suggestFor(g) {
+  const ach = g.ach && g.ach.hasAchievements ? g.ach : null;
+  if (!ach || !ach.total) return (g.playtimeMinutes || 0) === 0 ? tSuggest('start') : '';
+  if (ach.completionPct === 100) return tSuggest('done');
+  const locked = ach.achievements.filter((a) => !a.achieved);
+  const known = locked.filter((a) => a.globalPercent != null);
+  if (!locked.length) return '';
+  const rare = known.slice().sort((a, b) => a.globalPercent - b.globalPercent)[0];
+  const easy = known.slice().sort((a, b) => b.globalPercent - a.globalPercent)[0];
+  if (rare && rare.globalPercent <= 5) return tSuggest('rare', { ach: rare.name, pct: rare.globalPercent.toFixed(1) });
+  if (easy && easy.globalPercent >= 50) return tSuggest('easy', { ach: easy.name, pct: Math.round(easy.globalPercent) });
+  if (ach.completionPct >= 80) return tSuggest('finish', { left: locked.length });
+  if (easy) return tSuggest('next', { ach: easy.name });
+  return tSuggest('generic', { left: locked.length });
 }
-function layout(position) {
+function tSuggest(key, vars) {
+  const pool = (SUGGEST[LANG] && SUGGEST[LANG][key]) || SUGGEST.ko[key] || [''];
+  let s = pool[0];
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+
+// ── 3D 커버플로우 슬롯 (주크박스식) ───────────────────────────────
+let deck = [], cardEls = [], animId = null, landIndex = 0, curFocus = 0;
+function cardSpacing() {
+  const w = cardEls[0] ? cardEls[0].offsetWidth : 240;
+  return Math.max(120, w * 0.72);
+}
+// position: 현재 중앙 위치(실수). focus: 0=스핀중(원래크기), 1=착지(확대)
+function layout(position, focus) {
+  focus = focus || 0;
   const spacing = cardSpacing();
   for (let i = 0; i < cardEls.length; i++) {
     const el = cardEls[i];
     const d = i - position;
     const ad = Math.abs(d);
-    if (ad > 4.2) { el.style.visibility = 'hidden'; continue; }
+    if (ad > 1.6) { el.style.visibility = 'hidden'; continue; } // 좌우 1장만 노출
     el.style.visibility = 'visible';
     const clamp = Math.max(-1, Math.min(1, d));
     const x = d * spacing;
-    const z = -ad * 240;
-    const ry = -clamp * 58; // 옆 카드는 안쪽으로 회전
-    const scale = 1 - Math.min(ad, 3) * 0.07;
+    const z = -ad * 300;
+    const ry = -clamp * 50;
+    const scale = ad < 0.5 ? 1 + focus * 0.16 : 0.72 - (ad - 0.5) * 0.12;
     el.style.transform = `translate(-50%,-50%) translateX(${x}px) translateZ(${z}px) rotateY(${ry}deg) scale(${scale})`;
     el.style.zIndex = String(200 - Math.round(ad * 10));
-    el.style.opacity = ad > 3.6 ? '0' : '1';
+    el.style.opacity = ad > 1.5 ? '0' : '1';
     el.classList.toggle('center', ad < 0.5);
   }
 }
-function layoutStatic() { if (cardEls.length) layout(landIndex); }
+function layoutStatic() { if (cardEls.length) layout(landIndex, curFocus); }
 function renderDeck() {
   const cf = $('coverflow');
   cf.innerHTML = deck.map((g) => `<div class="cf-card"><img src="${imgPortrait(g)}" onerror="this.onerror=null;this.src='${imgHeader(g)}'"></div>`).join('');
   cardEls = Array.from(cf.children);
 }
 function showPick(g) {
-  if (!g) { $('pickName').textContent = ''; $('pickReason').textContent = t('spinNeedGames'); $('pick').classList.add('show'); return; }
+  if (!g) { $('pickName').textContent = ''; $('pickReason').textContent = t('spinNeedGames'); $('pickHint').textContent = ''; $('pick').classList.add('show'); return; }
   state.lastPick = g;
   $('pickName').textContent = g.name;
   $('pickReason').textContent = reasonFor(g);
+  $('pickHint').textContent = suggestFor(g);
   $('pickPlay').href = steamRunUrl(g.appid);
   $('pick').classList.add('show');
+}
+function animateFocus(to, dur, after) {
+  const from = curFocus, t0 = performance.now();
+  const e = (x) => 1 - Math.pow(1 - x, 3);
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / dur);
+    curFocus = from + (to - from) * e(p);
+    layout(landIndex, curFocus);
+    if (p < 1) requestAnimationFrame(step); else if (after) after();
+  };
+  requestAnimationFrame(step);
 }
 function spin() {
   if (!state.games.length) { showPick(null); return; }
   const rand = () => state.games[Math.floor(Math.random() * state.games.length)];
   const chosen = rand();
-  const LEN = 28; landIndex = 22;
+  const LEN = 30; landIndex = 24;
   deck = [];
   for (let i = 0; i < LEN; i++) deck.push(i === landIndex ? chosen : rand());
   renderDeck();
-  layout(0);
+  curFocus = 0;
+  layout(0, 0);
   $('reroll').disabled = true;
   $('pick').classList.remove('show');
-  const dur = 3200, t0 = performance.now();
+  const dur = 4600, t0 = performance.now();
   const ease = (x) => 1 - Math.pow(1 - x, 3);
   cancelAnimationFrame(animId);
   const frame = (now) => {
     const p = Math.min(1, (now - t0) / dur);
-    curPos = landIndex * ease(p);
-    layout(curPos);
+    layout(landIndex * ease(p), 0);
     if (p < 1) animId = requestAnimationFrame(frame);
-    else { $('reroll').disabled = false; showPick(chosen); }
+    else { $('reroll').disabled = false; showPick(chosen); animateFocus(1, 400); }
   };
   animId = requestAnimationFrame(frame);
 }
-$('reroll').addEventListener('click', spin);
-window.addEventListener('resize', () => { if (state.view === 'spin' && cardEls.length && $('reroll').disabled === false) layoutStatic(); });
+// 리롤: 확대돼 있던 선택 게임을 원래 크기로 축소한 뒤 스핀
+function doReroll() {
+  if (state.lastPick && curFocus > 0.01 && cardEls.length) animateFocus(0, 260, spin);
+  else spin();
+}
+$('reroll').addEventListener('click', doReroll);
+window.addEventListener('resize', () => { if (state.view === 'spin' && cardEls.length && !$('reroll').disabled) layoutStatic(); });
 
 // ── 내 게임 ───────────────────────────────────────────────────────
 function renderGames() {
@@ -264,10 +309,111 @@ function renderGames() {
     const pct = g.ach && g.ach.completionPct;
     const meta = pct != null ? t('completion', { pct }) : (g.playtimeMinutes ? Math.round(g.playtimeMinutes / 60) + t('hours') : '');
     const bar = pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : '';
-    return `<a class="game-card" href="${steamRunUrl(g.appid)}"><img src="${imgHeader(g)}" onerror="this.style.opacity=.12"><div class="gc-body"><div class="gc-name">${esc(g.name)}</div><div class="gc-meta">${meta}</div>${bar}</div></a>`;
+    return `<div class="game-card" data-appid="${g.appid}"><img src="${imgHeader(g)}" onerror="this.style.opacity=.12"><div class="gc-body"><div class="gc-name">${esc(g.name)}</div><div class="gc-meta">${meta}</div>${bar}</div></div>`;
   }).join('') || `<div class="empty">${t('emptyGroup')}</div>`;
 }
 $('gameSearch').addEventListener('input', renderGames);
+$('gameGrid').addEventListener('click', (e) => {
+  const card = e.target.closest('.game-card');
+  if (card && card.dataset.appid) openDetail(card.dataset.appid);
+});
+
+// ── 게임 상세 ─────────────────────────────────────────────────────
+const detailCache = {};
+function closeDetail() {
+  state.detailAppid = null;
+  $('gameDetail').classList.add('hidden');
+  $('gamesBrowse').classList.remove('hidden');
+}
+async function openDetail(appid) {
+  state.detailAppid = appid;
+  $('gamesBrowse').classList.add('hidden');
+  const box = $('gameDetail');
+  box.classList.remove('hidden');
+  box.innerHTML = `<button class="detail-back" id="detailBack">${t('back')}</button><div class="empty">${t('loading')}</div>`;
+  $('detailBack').onclick = closeDetail;
+  const key = appid + '_' + LANG;
+  let data = detailCache[key];
+  if (!data) {
+    try { data = await fetch('/api/game/' + appid + '?lang=' + LANG).then((r) => r.json()); detailCache[key] = data; }
+    catch (e) { box.innerHTML = `<button class="detail-back" id="detailBack">${t('back')}</button><div class="empty">${t('friendFail')}</div>`; $('detailBack').onclick = closeDetail; return; }
+  }
+  if (state.detailAppid !== appid) return; // 그 사이 뒤로 감
+  renderDetail(appid, data);
+}
+function achListHtml(arr) {
+  return `<div class="d-ach-list">` + arr.map((a) =>
+    `<div class="ach-row ${a.achieved ? '' : 'locked'}"><div><div class="a-name">${a.achieved ? '🏅 ' : '🔒 '}${esc(a.name)}</div><div class="a-desc">${esc(a.description)}</div></div><div class="a-pct">${a.globalPercent != null ? a.globalPercent.toFixed(1) + '%' : ''}</div></div>`
+  ).join('') + `</div>`;
+}
+function renderDetail(appid, d) {
+  const info = d.info || {};
+  const pr = d.progress || {};
+  const name = info.name || pr.name || appid;
+  const hero = info.headerImage || (pr.images && pr.images.header) || imgHeader({ appid });
+  const meta = [];
+  if (info.developers && info.developers.length) meta.push(`${t('dDev')}: ${esc(info.developers.join(', '))}`);
+  if (info.genres && info.genres.length) meta.push(esc(info.genres.join(', ')));
+  if (info.releaseDate) meta.push(`${t('dRelease')} ${esc(info.releaseDate)}`);
+  if (info.metacritic) meta.push(`Metacritic ${info.metacritic}`);
+  if (info.price) meta.push(esc(info.price));
+
+  // 진척도 카드
+  let progCard = '';
+  const ach = pr.ach && pr.ach.hasAchievements ? pr.ach : null;
+  const played = pr.playtimeMinutes ? t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) }) : t('dNever');
+  const lastP = pr.lastPlayed ? fmtDate(pr.lastPlayed) : '-';
+  let progInner = `<div class="d-kv"><b>${played}</b></div><div class="d-kv">${t('dLastPlayed')}: <b>${lastP}</b></div>`;
+  if (ach) {
+    progInner += `<div class="d-prog-bar"><i style="width:${ach.completionPct}%"></i></div><div class="d-kv">${t('achCount', { u: ach.unlocked, t: ach.total })} · ${ach.completionPct}%</div>`;
+    if (pr.lastAchievement) progInner += `<div class="d-kv">${t('dLastAch')}: <b>🏅 ${esc(pr.lastAchievement.name)}</b> <span style="color:var(--muted)">(${fmtDate(pr.lastAchievement.unlockTime)})</span></div>`;
+  }
+  progCard = `<div class="d-card"><h3>📊 ${t('dProgress')}</h3>${progInner}</div>`;
+
+  // 평가 카드
+  let revCard = '';
+  const rv = d.reviews;
+  if (rv && rv.total_reviews) {
+    const posPct = Math.round((rv.total_positive / rv.total_reviews) * 100);
+    revCard = `<div class="d-card"><h3>⭐ ${t('dReviews')}</h3><div class="review-badge review-pos">${esc(rv.review_score_desc || '')}</div><div class="d-kv" style="margin-top:10px">${t('dReviewCount', { n: rv.total_reviews.toLocaleString(), p: posPct })}</div></div>`;
+  } else {
+    revCard = `<div class="d-card"><h3>⭐ ${t('dReviews')}</h3><div class="empty">${t('dNoReviews')}</div></div>`;
+  }
+
+  // 도전과제 카드 (달성/미달성)
+  let achCard = '';
+  if (ach) {
+    const unlocked = ach.achievements.filter((a) => a.achieved).sort((a, b) => (b.unlockTime || 0) - (a.unlockTime || 0));
+    const locked = ach.achievements.filter((a) => !a.achieved).sort((a, b) => (b.globalPercent || 0) - (a.globalPercent || 0));
+    achCard = `<div class="d-card" style="grid-column:1/-1"><h3>🏆 ${t('navAch')} <span class="muted">${ach.unlocked}/${ach.total}</span></h3><div class="d-ach-cols"><div><div class="gh-sub">${t('dAchUnlocked')} (${unlocked.length})</div>${achListHtml(unlocked)}</div><div><div class="gh-sub">${t('dAchLocked')} (${locked.length})</div>${achListHtml(locked)}</div></div></div>`;
+  } else {
+    achCard = `<div class="d-card" style="grid-column:1/-1"><h3>🏆 ${t('navAch')}</h3><div class="empty">${t('dNoAch')}</div></div>`;
+  }
+
+  // 뉴스 카드
+  const news = d.news || [];
+  const newsInner = news.length ? news.map((n) =>
+    `<div class="news-item"><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a><div class="n-date">${fmtDate(n.date)}${n.feedlabel ? ' · ' + esc(n.feedlabel) : ''}</div></div>`
+  ).join('') : `<div class="empty">${t('dNoNews')}</div>`;
+  const newsCard = `<div class="d-card"><h3>📰 ${t('dNews')}</h3>${newsInner}</div>`;
+
+  // DLC 카드
+  const dlc = d.dlc || [];
+  const dlcInner = dlc.length ? `<div class="dlc-grid">` + dlc.map((x) =>
+    `<a class="dlc-item" href="https://store.steampowered.com/app/${x.appid}" target="_blank" rel="noopener"><img src="${esc(x.header)}" onerror="this.style.opacity=.15"><span class="dlc-name">${esc(x.name)}</span>${x.price ? `<span class="dlc-price">${esc(x.price)}</span>` : ''}</a>`
+  ).join('') + `</div>` + (d.dlcTotal > dlc.length ? `<div class="gh-sub" style="margin-top:8px">${t('dDlcMore', { n: d.dlcTotal - dlc.length })}</div>` : '') : `<div class="empty">${t('dNoDlc')}</div>`;
+  const dlcCard = `<div class="d-card"><h3>🧩 ${t('dDlc')}</h3>${dlcInner}</div>`;
+
+  const cachedNote = d.cachedAt ? `<span class="muted" style="color:var(--muted);font-size:11px;margin-left:8px">· ${t('dCached')} ${fmtDate(Math.floor(d.cachedAt / 1000))}</span>` : '';
+
+  $('gameDetail').innerHTML =
+    `<button class="detail-back" id="detailBack">${t('back')}</button>` +
+    `<div class="detail-hero"><img src="${esc(hero)}" onerror="this.style.opacity=.2"><div class="dh-shade"></div><div class="dh-body"><h2>${esc(name)}${cachedNote}</h2><div class="detail-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div></div></div>` +
+    `<div class="detail-actions"><a class="d-play" href="${steamRunUrl(appid)}">${t('dPlay')}</a><a class="d-steam" href="https://store.steampowered.com/app/${appid}" target="_blank" rel="noopener">${t('dSteam')}</a></div>` +
+    (info.shortDescription ? `<div class="detail-desc">${esc(info.shortDescription)}</div>` : '') +
+    `<div class="detail-grid">${progCard}${revCard}${achCard}${newsCard}${dlcCard}</div>`;
+  $('detailBack').onclick = closeDetail;
+}
 
 // ── 도전과제 ──────────────────────────────────────────────────────
 document.querySelectorAll('.subtab').forEach((b) => b.addEventListener('click', () => {

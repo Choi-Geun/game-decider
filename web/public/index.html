@@ -58,19 +58,23 @@
         <div class="spin-stage" id="spinStage">
           <div class="coverflow" id="coverflow"></div>
         </div>
-        <button class="reroll" id="reroll">🎲 <span data-i18n="reroll">돌려!</span></button>
         <div class="pick" id="pick">
           <div class="pick-name" id="pickName"></div>
           <div class="pick-reason" id="pickReason"></div>
+          <div class="pick-hint" id="pickHint"></div>
           <a class="pick-play" id="pickPlay" href="#">▶ <span data-i18n="play">실행</span></a>
         </div>
+        <button class="reroll" id="reroll">🎲 <span data-i18n="reroll">돌려!</span></button>
       </section>
 
       <!-- 뷰: 내 게임 -->
       <section id="view-games" class="view hidden">
-        <h2 data-i18n="navGames">내 게임</h2>
-        <input type="text" id="gameSearch" class="search" data-i18n-ph="searchGames" placeholder="게임 검색…" />
-        <div id="gameGrid" class="game-grid"></div>
+        <div id="gamesBrowse">
+          <h2 data-i18n="navGames">내 게임</h2>
+          <input type="text" id="gameSearch" class="search" data-i18n-ph="searchGames" placeholder="게임 검색…" />
+          <div id="gameGrid" class="game-grid"></div>
+        </div>
+        <div id="gameDetail" class="game-detail hidden"></div>
       </section>
 
       <!-- 뷰: 도전과제 -->

@@ -66,24 +66,25 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* ── 3D 커버플로우 슬롯 (주크박스) ── */
-.spin-view { display: flex; flex-direction: column; height: calc(100vh - 56px); }
-.spin-stage { position: relative; width: 100%; flex: 1; min-height: 320px; perspective: 1500px; perspective-origin: 50% 45%; overflow: hidden; background: radial-gradient(120% 90% at 50% 20%, #1a2030, var(--bg)); border-radius: 18px; border: 1px solid var(--line); }
+.spin-view { display: flex; flex-direction: column; height: calc(100vh - 32px); gap: 6px; }
+.spin-stage { position: relative; width: 100%; flex: 1; min-height: 360px; perspective: 1700px; perspective-origin: 50% 48%; overflow: hidden; background: radial-gradient(120% 90% at 50% 18%, #1a2030, var(--bg)); border-radius: 18px; border: 1px solid var(--line); }
 .coverflow { position: absolute; inset: 0; transform-style: preserve-3d; }
-.cf-card { position: absolute; left: 50%; top: 50%; width: clamp(150px, 17vw, 300px); aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 24px 46px rgba(0,0,0,.55); backface-visibility: hidden; }
+.cf-card { position: absolute; left: 50%; top: 50%; width: clamp(210px, 24vw, 380px); aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 28px 54px rgba(0,0,0,.6); backface-visibility: hidden; will-change: transform; }
 .cf-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cf-card.center { outline: 3px solid var(--accent); box-shadow: 0 0 60px rgba(91,108,255,.55), 0 24px 46px rgba(0,0,0,.55); }
+.cf-card.center { outline: 3px solid var(--accent); box-shadow: 0 0 70px rgba(91,108,255,.6), 0 28px 54px rgba(0,0,0,.6); }
 
-.reroll { display: block; margin: 18px auto 0; padding: 15px 44px; border: none; border-radius: 14px; background: linear-gradient(90deg, #5b6cff, #7c5bff); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 22px rgba(91,108,255,.35); transition: transform .08s; }
+.reroll { display: block; margin: 4px auto 0; padding: 16px 60px; border: none; border-radius: 16px; background: linear-gradient(90deg, #5b6cff, #7c5bff); color: #fff; font-size: 19px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 26px rgba(91,108,255,.4); transition: transform .08s; }
 .reroll:hover { transform: translateY(-1px); }
 .reroll:active { transform: scale(.98); }
 .reroll:disabled { opacity: .6; cursor: not-allowed; }
 .reroll.alt { background: #2a4a63; box-shadow: none; }
 
-.pick { margin: 24px auto 0; max-width: 560px; text-align: center; opacity: 0; transition: opacity .4s; }
+.pick { margin: 2px auto 0; max-width: 720px; text-align: center; opacity: 0; transition: opacity .4s; }
 .pick.show { opacity: 1; }
-.pick-name { font-size: 26px; font-weight: 800; }
-.pick-reason { color: #c4c4d0; font-size: 15px; margin-top: 8px; line-height: 1.6; }
-.pick-play { display: inline-block; margin-top: 16px; padding: 12px 28px; border-radius: 10px; background: var(--green); color: #fff; font-weight: 700; text-decoration: none; }
+.pick-name { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; }
+.pick-reason { color: #d4d4de; font-size: 17px; margin-top: 8px; line-height: 1.6; }
+.pick-hint { color: var(--accent2); font-size: 14px; margin-top: 6px; }
+.pick-play { display: inline-block; margin-top: 14px; padding: 14px 40px; border-radius: 12px; background: var(--green); color: #fff; font-weight: 800; font-size: 16px; text-decoration: none; }
 
 /* ── 게임 그리드 ── */
 .search { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font-size: 14px; margin-bottom: 18px; }
@@ -96,6 +97,44 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .game-card .gc-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .bar { height: 5px; border-radius: 3px; background: var(--line); margin-top: 6px; overflow: hidden; }
 .bar > i { display: block; height: 100%; background: linear-gradient(90deg,#5b6cff,#66c0f4); }
+
+/* ── 게임 상세 ── */
+.game-detail { max-width: 1000px; }
+.detail-back { background: none; border: 1px solid var(--line); color: var(--muted); padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13px; margin-bottom: 16px; }
+.detail-hero { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
+.detail-hero img { width: 100%; height: 260px; object-fit: cover; display: block; }
+.detail-hero .dh-shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(14,15,19,.96), rgba(14,15,19,.1) 60%); }
+.detail-hero .dh-body { position: absolute; left: 22px; right: 22px; bottom: 18px; }
+.detail-hero h2 { font-size: 30px; margin: 0 0 6px; }
+.detail-meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.detail-actions { display: flex; gap: 10px; margin: 16px 0 22px; flex-wrap: wrap; }
+.detail-actions a, .detail-actions .d-btn { padding: 12px 22px; border-radius: 11px; font-weight: 700; text-decoration: none; font-size: 14px; }
+.detail-actions .d-play { background: var(--green); color: #fff; }
+.detail-actions .d-steam { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+.detail-desc { color: #c4c4d0; font-size: 14px; line-height: 1.7; margin-bottom: 20px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 820px) { .detail-grid { grid-template-columns: 1fr; } }
+.d-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.d-card h3 { margin: 0 0 12px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.d-card h3 .muted { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: auto; }
+.d-prog-bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; margin: 8px 0; }
+.d-prog-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #5b6cff, #66c0f4); }
+.d-kv { font-size: 13px; color: var(--muted); margin: 6px 0; }
+.d-kv b { color: var(--text); font-weight: 600; }
+.d-ach-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .d-ach-cols { grid-template-columns: 1fr; } }
+.d-ach-list { max-height: 280px; overflow-y: auto; }
+.review-badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 13px; background: var(--panel2); }
+.review-pos { color: #66c0f4; }
+.news-item { border-top: 1px solid var(--line); padding: 10px 0; }
+.news-item:first-child { border-top: none; }
+.news-item a { color: var(--text); text-decoration: none; font-weight: 600; font-size: 13px; }
+.news-item .n-date { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.dlc-grid { display: flex; flex-direction: column; gap: 8px; }
+.dlc-item { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+.dlc-item img { width: 54px; height: 25px; object-fit: cover; border-radius: 4px; }
+.dlc-item .dlc-name { font-size: 13px; font-weight: 600; }
+.dlc-item .dlc-price { margin-left: auto; font-size: 12px; color: var(--accent2); }
 
 /* ── 도전과제 ── */
 .subtabs { display: flex; gap: 8px; margin-bottom: 16px; }

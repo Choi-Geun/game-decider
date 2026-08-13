@@ -13,6 +13,7 @@ const cacheStore = require('../src/cache');
 const { recommend } = require('../src/recommend');
 const { recommendPlus } = require('../src/recommendPlus');
 const { buildFriendCoop } = require('../src/friendsCoop');
+const { buildGameDetail } = require('../src/gameDetail');
 const openid = require('./src/steamOpenId');
 
 const env = loadEnv(path.join(__dirname, '..', '.env'));
@@ -236,6 +237,35 @@ app.get('/api/games', requireAuth, (req, res) => {
     achievementsBlocked: !!cache.achievementsBlocked,
     updatedAt: cache.updatedAt || null,
   });
+});
+
+// 게임 상세 (앱 정보/뉴스/평가/DLC + 내 진척도). 앱 정보는 TTL 캐싱.
+app.get('/api/game/:appid', requireAuth, async (req, res) => {
+  const appid = String(req.params.appid).replace(/\D/g, '');
+  if (!appid) return res.status(400).json({ error: 'bad appid' });
+  const lang = req.query.lang === 'en' ? 'english' : 'koreana';
+  const cache = cacheStore.loadCache(CACHE_DIR, req.session.steamId);
+  const game = cache && (cache.games || []).find((g) => g.appid === appid);
+
+  let progress = null;
+  if (game) {
+    progress = {
+      name: game.name, images: game.images,
+      playtimeMinutes: game.playtimeMinutes, playtime2weeks: game.playtime2weeks, lastPlayed: game.lastPlayed,
+      ach: game.ach || null,
+    };
+    if (game.ach && game.ach.hasAchievements) {
+      const unlocked = game.ach.achievements.filter((a) => a.achieved && a.unlockTime).sort((a, b) => b.unlockTime - a.unlockTime);
+      progress.lastAchievement = unlocked[0] || null;
+    }
+  }
+
+  try {
+    const detail = await buildGameDetail(appid, lang, CACHE_DIR, Date.now());
+    res.json({ appid, progress, info: detail.info, news: detail.news, reviews: detail.reviews, dlc: detail.dlc, dlcTotal: detail.dlcTotal, cachedAt: detail.at });
+  } catch (e) {
+    res.json({ appid, progress, error: String(e.message || e) });
+  }
 });
 
 // 친구 기반 코옵 추천 (온디맨드 — 친구 접속상태가 실시간이라 캐시 안 함)

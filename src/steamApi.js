@@ -157,6 +157,42 @@ async function getAppCategories(appid) {
   }
 }
 
+// 게임 상세 정보 (store appdetails). 반환: data 객체 또는 null.
+async function getAppDetails(appid, lang = 'english') {
+  const path = `/api/appdetails?appids=${appid}&l=${lang}`;
+  try {
+    const j = await getJson(path, 'store.steampowered.com');
+    const entry = j[String(appid)];
+    return entry && entry.success ? entry.data : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+// 최신 뉴스/업데이트 (ISteamNews). 반환: [{title,url,date,contents,feedlabel,author}]
+async function getNewsForApp(appid, count = 4, maxlength = 400) {
+  const path = `/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=${count}&maxlength=${maxlength}&format=json`;
+  try {
+    const j = await getJson(path);
+    return (j.appnews?.newsitems || []).map((n) => ({
+      title: n.title, url: n.url, date: n.date, contents: n.contents, feedlabel: n.feedlabel, author: n.author,
+    }));
+  } catch (_e) {
+    return [];
+  }
+}
+
+// 최근 평가 요약 (store appreviews). 반환: query_summary 또는 null.
+async function getAppReviews(appid) {
+  const path = `/appreviews/${appid}?json=1&language=all&purchase_type=all&num_per_page=0`;
+  try {
+    const j = await getJson(path, 'store.steampowered.com');
+    return j.query_summary || null;
+  } catch (_e) {
+    return null;
+  }
+}
+
 module.exports = {
   getPlayerSummary,
   getPlayerSummaries,
@@ -165,5 +201,8 @@ module.exports = {
   getGlobalAchievementPercents,
   getFriendList,
   getAppCategories,
+  getAppDetails,
+  getNewsForApp,
+  getAppReviews,
   imageUrls,
 };
