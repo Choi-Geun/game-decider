@@ -9,3 +9,11 @@ dist/
 # 유저별 캐시 (SteamID·게임·도전과제 데이터 — 절대 커밋 금지)
 .cache/
 web/.cache/
+
+# Pencil(.pen) 디자인 — 원본(src/*.pen)은 커밋, 파생물(exports)은 재생성 가능하므로 무시
+design/_pen/exports/**
+!design/_pen/exports/**/
+!design/_pen/exports/**/.gitkeep
+
+# 유저별 앱 상태 (뽑기·선택·기록)
+web/.state/
