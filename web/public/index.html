@@ -40,7 +40,6 @@
         <button class="nav-item active" data-view="daily">🎴 <span data-i18n="navDaily">오늘의 도전</span></button>
         <button class="nav-item" data-view="spin">🎰 <span data-i18n="navSpin">랜덤 스핀</span></button>
         <button class="nav-item" data-view="resume">↩️ <span data-i18n="navResume">이어하기</span></button>
-        <button class="nav-item" data-view="collection">🏅 <span data-i18n="navCollection">수집함</span></button>
         <button class="nav-item" data-view="games">🎮 <span data-i18n="navGames">내 게임</span></button>
         <button class="nav-item" data-view="ach">🏆 <span data-i18n="navAch">도전과제</span></button>
         <button class="nav-item" data-view="friends">👥 <span data-i18n="navFriends">친구랑</span></button>
@@ -82,12 +81,6 @@
         <div id="resumeContent"></div>
       </section>
 
-      <!-- 뷰: 수집함 -->
-      <section id="view-collection" class="view hidden">
-        <h2 data-i18n="collectionTitle">수집함</h2>
-        <p class="view-lead" data-i18n="collectionLead">지금까지 딴 것 중 희귀한 것들이에요.</p>
-        <div id="collectionContent"></div>
-      </section>
 
       <!-- 뷰: 내 게임 -->
       <section id="view-games" class="view hidden">
@@ -103,8 +96,8 @@
       <section id="view-ach" class="view hidden">
         <h2 data-i18n="navAch">도전과제</h2>
         <div class="subtabs" id="achSubtabs">
-          <button class="subtab active" data-group="status" data-i18n="tabStatus">상태별</button>
-          <button class="subtab" data-group="rarity" data-i18n="tabRarity">희귀도별</button>
+          <button class="subtab active" data-group="collected" data-i18n="tabCollected">모은 것</button>
+          <button class="subtab" data-group="targets" data-i18n="tabTargets">노릴 것</button>
           <button class="subtab" data-group="game" data-i18n="tabGame">게임별</button>
         </div>
         <div id="achWarn" class="ach-warn hidden">
@@ -117,7 +110,6 @@
       <!-- 뷰: 친구랑 -->
       <section id="view-friends" class="view hidden">
         <h2 data-i18n="navFriends">친구랑 할 게임</h2>
-        <button class="reroll alt" id="friendBtn">👥 <span data-i18n="findCoop">친구랑 할 코옵 게임 찾기</span></button>
         <div class="progress hidden" id="friendProgress"></div>
         <div id="friendList" class="friend-list"></div>
       </section>

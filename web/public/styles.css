@@ -495,3 +495,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 @media (max-width: 900px) {
   .draw-deck { grid-template-columns: 1fr; }
 }
+
+/* 게임별 탭 — 가로 스크롤이 아니라 격자로 훑는다 */
+.gcol-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.gcol-grid .gcol-card { width: auto; }

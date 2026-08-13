@@ -50,7 +50,7 @@ document.addEventListener(
   true
 );
 
-const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'status', lastPick: null, didInitialSpin: false };
+const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'collected', lastPick: null, didInitialSpin: false };
 
 // ── 언어 전환 ─────────────────────────────────────────────────────
 document.querySelectorAll('.lang-switch button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
@@ -181,7 +181,7 @@ $('sync').addEventListener('click', () => startSync(false));
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
 //   #spin | #games | #games/{appid} | #ach | #friends
-const VIEWS = ['daily', 'spin', 'resume', 'collection', 'games', 'ach', 'friends'];
+const VIEWS = ['daily', 'spin', 'resume', 'games', 'ach', 'friends'];
 
 function parseHash() {
   const raw = (location.hash || '').replace(/^#\/?/, '');
@@ -228,7 +228,6 @@ window.addEventListener('hashchange', applyRoute);
 function renderView() {
   if (state.view === 'daily') renderDaily();
   else if (state.view === 'resume') renderResume();
-  else if (state.view === 'collection') renderCollection();
   else if (state.view === 'games') renderGames();
   else if (state.view === 'ach') renderAch();
   else if (state.view === 'friends') renderFriendsIfLoaded();
@@ -631,13 +630,15 @@ async function loadCollection() {
   try { collectionData = await fetch('/api/collection').then((r) => r.json()); }
   catch (e) { collectionData = null; }
   collectionLoading = false;
-  if (state.view === 'collection') renderCollection();
+  if (state.view === 'ach') renderAch();
 }
 
 // 2.1% 보다 "1000명 중 21명"이 훨씬 와닿는다.
 const perThousand = (pct) => Math.max(1, Math.round(pct * 10));
 
 // 등급은 색만으로 구분하면 안 들어온다. 항상 글자 배지를 같이 단다.
+// 기준은 서버(src/collection.js)와 같아야 한다 — 같은 희귀도를 두 이름으로 부르면 혼란만 생긴다.
+const collTierOf = (p) => (p < 5 ? 'legendary' : p < 20 ? 'rare' : p < 50 ? 'normal' : 'common');
 const TIER_ICON = { legendary: '🏆', rare: '💎', normal: '🔹', common: '·' };
 function tierBadge(tier) {
   const key = 'tier' + tier.charAt(0).toUpperCase() + tier.slice(1);
@@ -674,9 +675,8 @@ function gameCollectionCard(g) {
   </a>`;
 }
 
-function renderCollection() {
-  const box = $('collectionContent');
-  if (!box) return;
+// '모은 것' 탭 — 달성한 것 = 수집. 도전과제 뷰 안으로 들어왔다.
+function renderCollected(box) {
   if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
 
   const { counts, crown, showcase, games, nextTargets, harvest } = collectionData;
@@ -716,18 +716,26 @@ function renderCollection() {
       </section>`
     : '';
 
-  // 게임별 현황 — "내 다른 게임들은 어떤 상태인지"
-  const gamesHtml = `<section class="coll-block">
-    <h3 class="cb-title">${t('gameShelf')}<span class="cb-sub">${t('gameShelfLead')}</span></h3>
-    ${games && games.length
-      ? `<div class="hscroll">${games.map(gameCollectionCard).join('')}</div>`
-      : `<div class="empty">${t('gameShelfEmpty')}</div>`}
+  const harvestHtml = `<section class="coll-block">
+    <h3 class="cb-title">${t('harvestTitle', { d: harvest.days })}
+      <span class="cb-sub">${harvest.count ? t('collectionCount', { n: harvest.count }) + (harvest.rarest ? ' · ' + t('harvestRarest', { p: harvest.rarest.globalPercent }) : '') : ''}</span></h3>
+    ${harvest.count
+      ? `<div class="hscroll">${harvest.items.map(trophyCard).join('')}</div>`
+      : `<div class="empty">${t('harvestNone')}</div>`}
   </section>`;
 
-  // 앞으로 향하게 하는 유일한 장치. 이게 없으면 수집함은 과거 기록일 뿐이다.
+  box.innerHTML = tilesHtml + crownHtml + shelf + harvestHtml;
+}
+
+// '노릴 것' 탭 — 미달성 = 사냥감. '모은 것'과 정확히 반대 축이다.
+function renderTargets(box) {
+  if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
+  const { counts, nextTargets } = collectionData;
+
+  // 다음 전설 후보 — 이 탭의 머리. 남은 전설 중 가장 손에 닿는 것들
   const nextHtml = nextTargets.length
     ? `<section class="coll-block">
-        <h3 class="cb-title">${t('nextTargetTitle', { n: counts.legendary + 1 })}</h3>
+        <h3 class="cb-title">${t('nextTargetTitle', { n: (counts.legendary || 0) + 1 })}</h3>
         <p class="cb-lead">${t('nextTargetLead')}</p>
         <div class="target-list">${nextTargets.map((x) => {
           const g = { appid: x.appid, name: x.gameName, images: x.images };
@@ -744,15 +752,27 @@ function renderCollection() {
       </section>`
     : '';
 
-  const harvestHtml = `<section class="coll-block">
-    <h3 class="cb-title">${t('harvestTitle', { d: harvest.days })}
-      <span class="cb-sub">${harvest.count ? t('collectionCount', { n: harvest.count }) + (harvest.rarest ? ' · ' + t('harvestRarest', { p: harvest.rarest.globalPercent }) : '') : ''}</span></h3>
-    ${harvest.count
-      ? `<div class="hscroll">${harvest.items.map(trophyCard).join('')}</div>`
-      : `<div class="empty">${t('harvestNone')}</div>`}
-  </section>`;
+  // 미달성을 등급별로. '모은 것'과 같은 등급 이름을 쓴다 — 다이아/골드 같은 별도 체계를
+  // 두면 같은 희귀도를 두 가지로 부르게 되어 혼란만 생긴다.
+  const locked = [];
+  for (const g of withAchGames()) {
+    for (const a of g.ach.achievements) {
+      if (a.achieved || a.globalPercent == null) continue;
+      locked.push({ name: a.name, gameName: g.name, appid: g.appid, images: g.images, globalPercent: a.globalPercent, tier: collTierOf(a.globalPercent) });
+    }
+  }
+  const LIMIT = 40;
+  const groups = ['legendary', 'rare', 'normal'].map((tier) => {
+    const arr = locked.filter((a) => a.tier === tier).sort((a, b) => b.globalPercent - a.globalPercent);
+    if (!arr.length) return '';
+    const more = arr.length > LIMIT ? `<span class="cb-sub">+${arr.length - LIMIT}</span>` : '';
+    return `<section class="coll-block">
+      <h3 class="cb-title">${tierBadge(tier)}<span class="cb-sub">${t('collectionCount', { n: arr.length })}</span>${more}</h3>
+      <div class="hscroll">${arr.slice(0, LIMIT).map(trophyCard).join('')}</div>
+    </section>`;
+  }).join('');
 
-  box.innerHTML = tilesHtml + crownHtml + shelf + gamesHtml + nextHtml + harvestHtml;
+  box.innerHTML = nextHtml + (groups || `<div class="empty">${t('emptyGroup')}</div>`);
 }
 
 // ── 게임 상세 ─────────────────────────────────────────────────────
@@ -866,80 +886,39 @@ function withAchGames() {
 }
 function renderAch() {
   $('achWarn').classList.toggle('hidden', !state.achievementsBlocked);
-  const games = withAchGames();
-  if (!games.length) { $('achContent').innerHTML = `<div class="empty">${t('noAchGames')}</div>`; return; }
-  if (state.achGroup === 'status') renderAchStatus(games);
-  else if (state.achGroup === 'rarity') renderAchRarity(games);
-  else renderAchByGame(games);
+  const box = $('achContent');
+  if (!withAchGames().length) { box.innerHTML = `<div class="empty">${t('noAchGames')}</div>`; return; }
+  if (state.achGroup === 'collected') renderCollected(box);
+  else if (state.achGroup === 'targets') renderTargets(box);
+  else renderAchByGame(box);
 }
-function gameChips(games) {
-  if (!games.length) return `<div class="empty">${t('emptyGroup')}</div>`;
-  return `<div class="chip-row">` + games.map((g) =>
-    `<a class="chip" href="${steamRunUrl(g.appid)}"><img src="${imgHeader(g)}" ${coverAttrs(g)}>${esc(g.name)}<span class="pct">${g.ach.completionPct}%</span></a>`
-  ).join('') + `</div>`;
-}
-function achGroupBox(title, sub, inner) {
-  return `<div class="ach-group"><h3>${esc(title)}</h3><div class="gh-sub">${esc(sub)}</div>${inner}</div>`;
-}
-function renderAchStatus(games) {
-  const remaining = (g) => g.ach.achievements.filter((a) => !a.achieved);
-  const cont = games.filter((g) => g.ach.completionPct < 100 && ((g.playtime2weeks || 0) > 0 || (g.lastPlayed || 0) > 0))
-    .sort((a, b) => (b.playtime2weeks || 0) - (a.playtime2weeks || 0) || (b.lastPlayed || 0) - (a.lastPlayed || 0)).slice(0, 24);
-  const finish = games.filter((g) => g.ach.completionPct >= 50 && g.ach.completionPct < 100)
-    .sort((a, b) => b.ach.completionPct - a.ach.completionPct).slice(0, 24);
-  const easy = games.filter((g) => remaining(g).some((a) => a.globalPercent != null && a.globalPercent >= 40)).slice(0, 24);
-  const rare = games.filter((g) => remaining(g).some((a) => a.globalPercent != null && a.globalPercent <= 10)).slice(0, 24);
-  $('achContent').innerHTML =
-    achGroupBox(t('stContinue'), t('stContinueSub'), gameChips(cont)) +
-    achGroupBox(t('stFinish'), t('stFinishSub'), gameChips(finish)) +
-    achGroupBox(t('stEasy'), t('stEasySub'), gameChips(easy)) +
-    achGroupBox(t('stRare'), t('stRareSub'), gameChips(rare));
-}
-function tierOf(pct) { return pct <= 5 ? 'diamond' : pct <= 20 ? 'gold' : pct <= 50 ? 'silver' : 'bronze'; }
-function renderAchRarity(games) {
-  const locked = [];
-  games.forEach((g) => g.ach.achievements.forEach((a) => {
-    if (!a.achieved && a.globalPercent != null) locked.push({ name: a.name, desc: a.description, pct: a.globalPercent, game: g.name });
-  }));
-  const tiers = { diamond: [], gold: [], silver: [], bronze: [] };
-  locked.forEach((a) => tiers[tierOf(a.pct)].push(a));
-  const order = [['diamond', 'tierDiamond', 'tier-diamond'], ['gold', 'tierGold', 'tier-gold'], ['silver', 'tierSilver', 'tier-silver'], ['bronze', 'tierBronze', 'tier-bronze']];
-  let html = `<div class="gh-sub" style="margin-bottom:12px">${t('rarityLockedNote')}</div>`;
-  for (const [key, label, cls] of order) {
-    const arr = tiers[key].sort((a, b) => a.pct - b.pct);
-    const shown = arr.slice(0, 60);
-    const rows = shown.map((a) =>
-      `<div class="ach-row locked"><div><div class="a-name">${esc(a.name)}</div><div class="a-desc">${esc(a.game)}</div></div><div class="a-pct">${a.pct.toFixed(1)}%</div></div>`
-    ).join('') || `<div class="empty">${t('emptyGroup')}</div>`;
-    const more = arr.length > 60 ? `<div class="gh-sub" style="margin-top:8px">+${arr.length - 60}</div>` : '';
-    html += `<div class="ach-group"><h3><span class="tier-badge ${cls}">${t(label)}</span> · ${arr.length}</h3>${rows}${more}</div>`;
-  }
-  $('achContent').innerHTML = html;
-}
-function renderAchByGame(games) {
-  const sorted = [...games].sort((a, b) => (b.ach.completionPct || 0) - (a.ach.completionPct || 0));
-  $('achContent').innerHTML = sorted.map((g) => {
-    const rows = [...g.ach.achievements]
-      .sort((a, b) => Number(b.achieved) - Number(a.achieved))
-      .map((a) => `<div class="ach-row ${a.achieved ? '' : 'locked'}"><div><div class="a-name">${a.achieved ? '🏅 ' : '🔒 '}${esc(a.name)}</div><div class="a-desc">${esc(a.description)}</div></div><div class="a-pct">${a.globalPercent != null ? a.globalPercent.toFixed(1) + '%' : ''}</div></div>`)
-      .join('');
-    return `<details class="game-acc"><summary><img src="${imgHeader(g)}" ${coverAttrs(g)}><span class="ga-name">${esc(g.name)}</span><span class="ga-pct">${t('achCount', { u: g.ach.unlocked, t: g.ach.total })} · ${g.ach.completionPct}%</span></summary><div class="ga-body">${rows}</div></details>`;
-  }).join('');
+
+// '게임별' 탭 — 수집 현황(전설/희귀 개수)과 진행률을 한 카드에. 누르면 게임 상세로.
+// 예전에는 아코디언으로 도전과제를 펼쳤지만, 상세 페이지가 그걸 더 잘 보여준다.
+function renderAchByGame(box) {
+  if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
+  const games = collectionData.games || [];
+  if (!games.length) { box.innerHTML = `<div class="empty">${t('gameShelfEmpty')}</div>`; return; }
+  box.innerHTML = `<p class="cb-lead">${t('gameShelfLead')}</p>
+    <div class="gcol-grid">${games.map(gameCollectionCard).join('')}</div>`;
 }
 
 // ── 친구 코옵 ─────────────────────────────────────────────────────
 let friendLoading = false, friendData = null;
-$('friendBtn').addEventListener('click', loadFriends);
-function renderFriendsIfLoaded() { if (friendData) renderFriends(friendData); }
+
+// 버튼을 없앴다. 동기화된 정보로 만들 수 있는 화면인데 한 번 더 누르게 할 이유가 없다.
+// (서버가 60초 캐시를 물고 있어 탭을 오갈 때마다 새로 계산하지도 않는다)
+function renderFriendsIfLoaded() {
+  if (friendData) renderFriends(friendData);
+  else loadFriends();
+}
 async function loadFriends() {
   if (friendLoading) return;
   friendLoading = true;
-  $('friendBtn').disabled = true;
   $('friendProgress').classList.remove('hidden');
   $('friendProgress').textContent = t('friendChecking');
   try { friendData = await fetch('/api/friends').then((r) => r.json()); renderFriends(friendData); }
   catch (e) { $('friendProgress').textContent = t('friendFail'); }
-  $('friendBtn').disabled = false;
   friendLoading = false;
 }
 function renderFriends(res) {
