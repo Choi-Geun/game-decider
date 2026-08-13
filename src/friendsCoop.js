@@ -3,12 +3,27 @@
 const fs = require('fs');
 const path = require('path');
 const api = require('./steamApi');
+const { groupByBucket } = require('./genreBuckets');
+
+// SteamSpy 태그 캐시. 한 번에 다 받으면 첫 로딩이 너무 길어져서
+// 요청당 상한을 두고 회차를 나눠 채운다 — 그 전에도 장르만으로 분류는 된다.
+const TAG_FETCH_PER_REQUEST = 15;
+const TAG_FETCH_DELAY_MS = 1000; // SteamSpy 는 초당 1회 권장
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 게임 카테고리(코옵/멀티) 캐시 — 정적이라 한 번 받으면 계속 재사용.
 function catFile(dir) {
   return path.join(dir, 'categories.json');
+}
+function tagFile(dir) {
+  return path.join(dir, 'tags.json');
+}
+function loadJson(p, fallback) {
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_e) { return fallback; }
+}
+function saveJson(p, obj) {
+  try { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify(obj, null, 2)); } catch (_e) {}
 }
 function loadCats(dir) {
   try {
@@ -71,9 +86,11 @@ async function buildFriendCoop(apiKey, steamId, myGames, dir, onProgress) {
   // 4) 겹치는 게임만 코옵/멀티 분류 (캐시 우선)
   const cats = loadCats(dir);
   let done = 0;
-  const toClassify = candidateApps.filter((a) => !cats[a]);
+  // genres 가 없는 옛 캐시는 다시 받는다 (장르 필드를 나중에 추가했다)
+  const needsCat = (a) => !cats[a] || !Array.isArray(cats[a].genres);
+  const toClassify = candidateApps.filter(needsCat);
   for (const appid of candidateApps) {
-    if (!cats[appid]) {
+    if (needsCat(appid)) {
       cats[appid] = await api.getAppCategories(appid);
       done += 1;
       if (onProgress) onProgress(done, toClassify.length, nameByApp[appid] || appid);
@@ -81,6 +98,17 @@ async function buildFriendCoop(apiKey, steamId, myGames, dir, onProgress) {
     }
   }
   saveCats(dir, cats);
+
+  // 4-b) 성격 분류용 태그 — 캐시에 없는 것만 상한까지 채운다
+  const tagPath = tagFile(dir);
+  const tagMap = loadJson(tagPath, {});
+  const coopApps = candidateApps.filter((a) => cats[a] && (cats[a].coop || cats[a].multiplayer));
+  const missingTags = coopApps.filter((a) => !Array.isArray(tagMap[a]));
+  for (const appid of missingTags.slice(0, TAG_FETCH_PER_REQUEST)) {
+    tagMap[appid] = await api.getSteamSpyTags(appid);
+    await sleep(TAG_FETCH_DELAY_MS);
+  }
+  if (missingTags.length) saveJson(tagPath, tagMap);
 
   // 5) 코옵/멀티 게임만 결과로. 각 게임에 보유 친구 + 접속상태.
   const games = [];
@@ -108,6 +136,9 @@ async function buildFriendCoop(apiKey, steamId, myGames, dir, onProgress) {
       ownerCount: owners.length,
       onlineCount: owners.filter((o) => o.online).length,
       owners,
+      genres: cat.genres || [],
+      categories: cat.categories || [],
+      tags: tagMap[appid] || [],
     });
   }
 
@@ -119,7 +150,11 @@ async function buildFriendCoop(apiKey, steamId, myGames, dir, onProgress) {
       Number(b.coop) - Number(a.coop)
   );
 
-  return { friendCount: friends.length, publicFriends, privateFriendList: false, games };
+  // 7) 성격별로 묶는다. 41개를 한 줄로 늘어놓으면 "뭘 고르지"가 다시 시작된다.
+  const groups = groupByBucket(games);
+  const tagsPending = Math.max(0, missingTags.length - TAG_FETCH_PER_REQUEST);
+
+  return { friendCount: friends.length, publicFriends, privateFriendList: false, games, groups, tagsPending };
 }
 
 module.exports = { buildFriendCoop };

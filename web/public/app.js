@@ -821,8 +821,35 @@ function renderDetail(appid, d) {
   if (info.developers && info.developers.length) meta.push(`${t('dDev')}: ${esc(info.developers.join(', '))}`);
   if (info.genres && info.genres.length) meta.push(esc(info.genres.join(', ')));
   if (info.releaseDate) meta.push(`${t('dRelease')} ${esc(info.releaseDate)}`);
-  if (info.metacritic) meta.push(`Metacritic ${info.metacritic}`);
-  if (info.price) meta.push(esc(info.price));
+  // Metacritic·가격은 아래 지표 스트립으로 옮겼다 — 같은 숫자를 두 번 쓰지 않는다
+
+  // 핵심 지표 — 흩어져 있던 숫자를 한 줄로 모은다.
+  // 상세 페이지에서 제일 먼저 보고 싶은 건 "이 게임 괜찮나 / 내가 얼마나 했나 / 얼마인가" 다.
+  function statTile(value, label, sub, tone) {
+    return `<div class="d-stat${tone ? ' t-' + tone : ''}">
+      <span class="ds-value">${value}</span>
+      <span class="ds-label">${label}</span>
+      <span class="ds-sub">${sub || '&nbsp;'}</span>
+    </div>`;
+  }
+  const rvAll = d.reviews;
+  const posPctAll = rvAll && rvAll.total_reviews ? Math.round((rvAll.total_positive / rvAll.total_reviews) * 100) : null;
+  const achAll = pr.ach && pr.ach.hasAchievements ? pr.ach : null;
+  const tiles = [];
+  if (posPctAll != null) {
+    tiles.push(statTile(posPctAll + '%', t('dsReviews'),
+      t('dReviewCount', { n: rvAll.total_reviews.toLocaleString(), p: posPctAll }).split('·')[0].trim(),
+      posPctAll >= 70 ? 'good' : posPctAll >= 40 ? 'mid' : 'bad'));
+  }
+  if (info.metacritic) tiles.push(statTile(info.metacritic, 'Metacritic', t('dsOutOf100'), info.metacritic >= 75 ? 'good' : 'mid'));
+  tiles.push(statTile(
+    pr.playtimeMinutes ? t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) }) : t('dsNeverShort'),
+    t('dsMyRecord'),
+    achAll ? t('achCount', { u: achAll.unlocked, t: achAll.total }) : (pr.playtimeMinutes ? t('dLastPlayed') + ' ' + (pr.lastPlayed ? fmtDate(pr.lastPlayed) : '-') : t('dNever'))));
+  if (info.price) tiles.push(statTile(esc(info.price), t('dsPrice'), d.dlcTotal ? t('dsDlcCount', { n: d.dlcTotal }) : ''));
+  const statStrip = tiles.length
+    ? `<section class="d-stats"><h3 class="ds-title">${t('dsTitle')}</h3><div class="d-stat-row">${tiles.join('')}</div></section>`
+    : '';
 
   // 진척도 카드
   let progCard = '';
@@ -876,6 +903,7 @@ function renderDetail(appid, d) {
     `<button class="detail-back" id="detailBack">${t('back')}</button>` +
     `<div class="detail-hero"><img src="${esc(hero)}" data-fallback="${esc(name)}"><div class="dh-shade"></div><div class="dh-body"><h2>${esc(name)}${cachedNote}</h2><div class="detail-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div></div></div>` +
     `<div class="detail-actions"><a class="d-play" href="${steamRunUrl(appid)}">${t('dPlay')}</a><a class="d-steam" href="https://store.steampowered.com/app/${appid}" target="_blank" rel="noopener">${t('dSteam')}</a></div>` +
+    statStrip +
     (info.shortDescription ? `<div class="detail-desc">${esc(info.shortDescription)}</div>` : '') +
     `<div class="detail-grid">${progCard}${revCard}${achCard}${newsCard}${dlcCard}</div>`;
   $('detailBack').onclick = () => navigate('games');
@@ -931,8 +959,12 @@ function renderFriends(res) {
   if (res.error) { $('friendProgress').textContent = '❌ ' + res.error; return; }
   if (res.privateFriendList || res.friendCount === 0) { $('friendProgress').textContent = t('friendPrivate'); list.innerHTML = ''; return; }
   if (!res.games || !res.games.length) { $('friendProgress').textContent = t('friendNoCoop', { n: res.friendCount }); list.innerHTML = ''; return; }
-  $('friendProgress').textContent = t('friendSummary', { n: res.friendCount, p: res.publicFriends, g: res.games.length });
-  list.innerHTML = res.games.map((g) => {
+  let summary = t('friendSummary', { n: res.friendCount, p: res.publicFriends, g: res.games.length });
+  // 태그 수집은 회차를 나눠 채운다 — 아직 남았으면 알려준다
+  if (res.tagsPending) summary += ' · ' + t('friendTagsPending', { n: res.tagsPending });
+  $('friendProgress').textContent = summary;
+
+  function friendGameHtml(g) {
     const tag = g.coop ? t('coop') : t('multi');
     const img = (g.images && g.images.header) || imgHeader(g);
     const owners = g.owners.map((o) => {
@@ -941,6 +973,16 @@ function renderFriends(res) {
       return `<span class="owner ${o.online ? 'on' : ''}"><span class="dot"></span>${av}${esc(o.name)}${playing}</span>`;
     }).join('');
     return `<div class="friend-game"><img class="fg-img" src="${img}" ${coverAttrs(g)}><div class="fg-body"><div class="fg-top"><span class="fg-name">${esc(g.name)}</span> <span class="fg-tag">${tag}</span><a class="fg-play" href="${steamRunUrl(g.appid)}">▶ ${t('play')}</a></div><div class="owners">${owners}</div></div></div>`;
+  }
+
+  // 성격별 그룹. 서버가 못 묶어줬으면(옛 응답) 통짜 목록으로 떨어진다.
+  const groups = res.groups && res.groups.length ? res.groups : [{ key: null, games: res.games }];
+  list.innerHTML = groups.map((grp) => {
+    const title = grp.key
+      ? `<h3 class="fg-group-title">${t('bucket_' + grp.key)}<span class="fg-count">${t('collectionCount', { n: grp.games.length })}</span></h3>`
+      : '';
+    return `<section class="friend-group">${title}
+      <div class="friend-grid">${grp.games.map(friendGameHtml).join('')}</div></section>`;
   }).join('');
 }
 

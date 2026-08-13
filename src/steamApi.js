@@ -142,18 +142,35 @@ async function getPlayerSummaries(apiKey, steamIds) {
 
 // 게임의 카테고리(코옵/멀티 여부) — store appdetails (비공식). 키 불필요.
 async function getAppCategories(appid) {
-  const path = `/api/appdetails?appids=${appid}&filters=categories`;
+  // 장르도 같이 받는다 — 친구 화면에서 성격별로 묶는 데 쓴다.
+  const path = `/api/appdetails?appids=${appid}&filters=categories,genres`;
   try {
     const j = await getJson(path, 'store.steampowered.com');
     const entry = j[String(appid)];
-    if (!entry || !entry.success) return { coop: false, multiplayer: false };
-    const cats = (entry.data?.categories || []).map((c) => (c.description || '').toLowerCase());
+    if (!entry || !entry.success) return { coop: false, multiplayer: false, categories: [], genres: [] };
+    const rawCats = (entry.data?.categories || []).map((c) => c.description || '');
+    const genres = (entry.data?.genres || []).map((g) => g.description || '');
+    const cats = rawCats.map((c) => c.toLowerCase());
     const has = (kw) => cats.some((c) => c.includes(kw));
     const coop = has('co-op') || has('co op') || has('coop');
     const multiplayer = has('multi-player') || has('multiplayer') || has('pvp') || has('online');
-    return { coop, multiplayer: multiplayer || coop };
+    return { coop, multiplayer: multiplayer || coop, categories: rawCats, genres };
   } catch (_e) {
-    return { coop: false, multiplayer: false };
+    return { coop: false, multiplayer: false, categories: [], genres: [] };
+  }
+}
+
+// SteamSpy 유저 태그. 로그라이크·생존·오픈월드 같은 성격은 Steam 장르에 없고
+// 태그에만 있다. 다만 신뢰도가 들쭉날쭉해서(It Takes Two 가 "Dating Sim" 으로 나온다)
+// 장르로 판별되는 건 장르를 우선한다 — genreBuckets.js 참고.
+async function getSteamSpyTags(appid) {
+  try {
+    const r = await fetch(`https://steamspy.com/api.php?request=appdetails&appid=${appid}`);
+    if (!r.ok) return [];
+    const j = await r.json();
+    return j && j.tags && !Array.isArray(j.tags) ? Object.keys(j.tags).slice(0, 12) : [];
+  } catch (_e) {
+    return [];
   }
 }
 
@@ -201,6 +218,7 @@ module.exports = {
   getGlobalAchievementPercents,
   getFriendList,
   getAppCategories,
+  getSteamSpyTags,
   getAppDetails,
   getNewsForApp,
   getAppReviews,

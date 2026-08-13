@@ -508,3 +508,26 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 @media (max-width: 900px) { #view-daily { height: auto; } .draw-card { width: 100%; height: auto; } }
 
 .rg-sub { margin: -6px 0 12px; font-size: 12px; color: var(--muted); }
+
+/* 친구랑 — 성격별 그룹. 41개를 한 줄로 늘어놓으면 "뭘 고르지"가 다시 시작된다. */
+.friend-group { margin-bottom: 26px; }
+.fg-group-title { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
+.fg-count { margin-left: 9px; font-weight: 400; font-size: 12px; color: var(--muted); }
+.friend-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
+@media (max-width: 980px) { .friend-grid { grid-template-columns: 1fr; } }
+
+/* 게임 상세 — 핵심 지표. 흩어져 있던 숫자를 한 줄로 모은다. */
+.d-stats { margin: 18px 0 20px; }
+.ds-title { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.d-stat-row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.d-stat {
+  display: flex; flex-direction: column; gap: 1px; padding: 14px 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; border-top-width: 3px;
+}
+.d-stat.t-good { border-top-color: #4caf72; }
+.d-stat.t-mid  { border-top-color: #d8a13a; }
+.d-stat.t-bad  { border-top-color: #d2603f; }
+.ds-value { font-size: 26px; font-weight: 800; line-height: 1.15; }
+.d-stat.t-good .ds-value { color: #7fd8a0; }
+.ds-label { font-size: 12px; font-weight: 700; color: #d4d4de; }
+.ds-sub { font-size: 11px; color: var(--muted); }
