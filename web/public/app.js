@@ -832,13 +832,15 @@ function renderDetail(appid, d) {
       <span class="ds-sub">${sub || '&nbsp;'}</span>
     </div>`;
   }
+  // 큰 숫자는 만 단위로. "1,148,151개" 보다 "114.8만개" 가 한눈에 읽힌다
+  const compactCount = (n) => (n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, '') + '만' : n.toLocaleString());
   const rvAll = d.reviews;
   const posPctAll = rvAll && rvAll.total_reviews ? Math.round((rvAll.total_positive / rvAll.total_reviews) * 100) : null;
   const achAll = pr.ach && pr.ach.hasAchievements ? pr.ach : null;
   const tiles = [];
   if (posPctAll != null) {
     tiles.push(statTile(posPctAll + '%', t('dsReviews'),
-      t('dReviewCount', { n: rvAll.total_reviews.toLocaleString(), p: posPctAll }).split('·')[0].trim(),
+      t('dsReviewCount', { n: compactCount(rvAll.total_reviews) }),
       posPctAll >= 70 ? 'good' : posPctAll >= 40 ? 'mid' : 'bad'));
   }
   if (info.metacritic) tiles.push(statTile(info.metacritic, 'Metacritic', t('dsOutOf100'), info.metacritic >= 75 ? 'good' : 'mid'));
@@ -851,37 +853,26 @@ function renderDetail(appid, d) {
     ? `<section class="d-stats"><h3 class="ds-title">${t('dsTitle')}</h3><div class="d-stat-row">${tiles.join('')}</div></section>`
     : '';
 
-  // 진척도 카드
-  let progCard = '';
+  // 내 기록 — 예전엔 '진척도'와 '도전과제'가 따로였는데, 진척도의 숫자는 위 지표
+  // 스트립으로 올라갔다. 남은 건 "내가 이 게임에서 뭘 했나" 하나라 카드도 하나로 합친다.
   const ach = pr.ach && pr.ach.hasAchievements ? pr.ach : null;
-  const played = pr.playtimeMinutes ? t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) }) : t('dNever');
-  const lastP = pr.lastPlayed ? fmtDate(pr.lastPlayed) : '-';
-  let progInner = `<div class="d-kv"><b>${played}</b></div><div class="d-kv">${t('dLastPlayed')}: <b>${lastP}</b></div>`;
-  if (ach) {
-    progInner += `<div class="d-prog-bar"><i style="width:${ach.completionPct}%"></i></div><div class="d-kv">${t('achCount', { u: ach.unlocked, t: ach.total })} · ${ach.completionPct}%</div>`;
-    if (pr.lastAchievement) progInner += `<div class="d-kv">${t('dLastAch')}: <b>🏅 ${esc(pr.lastAchievement.name)}</b> <span style="color:var(--muted)">(${fmtDate(pr.lastAchievement.unlockTime)})</span></div>`;
-  }
-  progCard = `<div class="d-card"><h3>📊 ${t('dProgress')}</h3>${progInner}</div>`;
-
-  // 평가 카드
-  let revCard = '';
-  const rv = d.reviews;
-  if (rv && rv.total_reviews) {
-    const posPct = Math.round((rv.total_positive / rv.total_reviews) * 100);
-    revCard = `<div class="d-card"><h3>⭐ ${t('dReviews')}</h3><div class="review-badge review-pos">${esc(rv.review_score_desc || '')}</div><div class="d-kv" style="margin-top:10px">${t('dReviewCount', { n: rv.total_reviews.toLocaleString(), p: posPct })}</div></div>`;
+  let recInner = '';
+  if (pr.playtimeMinutes) {
+    recInner += `<div class="d-kv"><b>${t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) })}</b> · ${t('dLastPlayed')} ${pr.lastPlayed ? fmtDate(pr.lastPlayed) : '-'}</div>`;
   } else {
-    revCard = `<div class="d-card"><h3>⭐ ${t('dReviews')}</h3><div class="empty">${t('dNoReviews')}</div></div>`;
+    recInner += `<div class="empty">${t('dNever')}</div>`;
   }
-
-  // 도전과제 카드 (달성/미달성)
-  let achCard = '';
   if (ach) {
     const unlocked = ach.achievements.filter((a) => a.achieved).sort((a, b) => (b.unlockTime || 0) - (a.unlockTime || 0));
     const locked = ach.achievements.filter((a) => !a.achieved).sort((a, b) => (b.globalPercent || 0) - (a.globalPercent || 0));
-    achCard = `<div class="d-card" style="grid-column:1/-1"><h3>🏆 ${t('navAch')} <span class="muted">${ach.unlocked}/${ach.total}</span></h3><div class="d-ach-cols"><div><div class="gh-sub">${t('dAchUnlocked')} (${unlocked.length})</div>${achListHtml(unlocked)}</div><div><div class="gh-sub">${t('dAchLocked')} (${locked.length})</div>${achListHtml(locked)}</div></div></div>`;
+    recInner += `<div class="d-prog-bar"><i style="width:${ach.completionPct}%"></i></div>
+      <div class="d-kv">${t('achCount', { u: ach.unlocked, t: ach.total })} · ${ach.completionPct}%</div>`;
+    if (pr.lastAchievement) recInner += `<div class="d-kv">${t('dLastAch')}: <b>🏅 ${esc(pr.lastAchievement.name)}</b> <span style="color:var(--muted)">(${fmtDate(pr.lastAchievement.unlockTime)})</span></div>`;
+    recInner += `<div class="d-ach-cols" style="margin-top:12px"><div><div class="gh-sub">${t('dAchUnlocked')} (${unlocked.length})</div>${achListHtml(unlocked)}</div><div><div class="gh-sub">${t('dAchLocked')} (${locked.length})</div>${achListHtml(locked)}</div></div>`;
   } else {
-    achCard = `<div class="d-card" style="grid-column:1/-1"><h3>🏆 ${t('navAch')}</h3><div class="empty">${t('dNoAch')}</div></div>`;
+    recInner += `<div class="gh-sub" style="margin-top:6px">${t('dNoAchShort')}</div>`;
   }
+  const achCard = `<div class="d-card" style="grid-column:1/-1"><h3>${t('dMyRecord')}${ach ? ` <span class="muted">${ach.unlocked}/${ach.total}</span>` : ''}</h3>${recInner}</div>`;
 
   // 뉴스 카드
   const news = d.news || [];
@@ -905,7 +896,7 @@ function renderDetail(appid, d) {
     `<div class="detail-actions"><a class="d-play" href="${steamRunUrl(appid)}">${t('dPlay')}</a><a class="d-steam" href="https://store.steampowered.com/app/${appid}" target="_blank" rel="noopener">${t('dSteam')}</a></div>` +
     statStrip +
     (info.shortDescription ? `<div class="detail-desc">${esc(info.shortDescription)}</div>` : '') +
-    `<div class="detail-grid">${progCard}${revCard}${achCard}${newsCard}${dlcCard}</div>`;
+    `<div class="detail-grid">${achCard}${newsCard}${dlcCard}</div>`;
   $('detailBack').onclick = () => navigate('games');
 }
 
