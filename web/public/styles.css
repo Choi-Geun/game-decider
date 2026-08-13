@@ -428,7 +428,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   position: relative; display: flex; flex-direction: column; width: 330px; height: 430px; flex: none;
   background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
   /* 뒤집히며 등장 — 뽑는 맛 */
-  animation: card-flip .5s cubic-bezier(.2, .8, .3, 1) backwards;
+  animation: card-flip .5s cubic-bezier(.2, .8, .3, 1);
   animation-delay: calc(var(--i) * 110ms);
   transform-origin: 50% 50%;
 }
@@ -484,7 +484,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   padding: 16px 20px; border-radius: 14px;
   background: linear-gradient(100deg, #1d3b28, var(--panel));
   border: 1px solid #3f6f4e;
-  animation: done-in .45s cubic-bezier(.2, .8, .3, 1) backwards;
+  animation: done-in .45s cubic-bezier(.2, .8, .3, 1);
 }
 @keyframes done-in { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
 .db-mark { font-size: 34px; line-height: 1; }

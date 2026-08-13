@@ -174,6 +174,14 @@ app.get('/dev/login', async (req, res) => {
   res.redirect('/');
 });
 
+// /dev/login 과 대칭. 로그아웃 상태 화면(로그인 페이지)을 확인하려면 필요하다.
+// 같은 이중 게이트 — 환경변수 + localhost.
+app.get('/dev/logout', (req, res) => {
+  if (!DEV_LOGIN_STEAMID || !isLocalRequest(req)) return res.status(404).end();
+  res.clearCookie(AUTH_COOKIE, { path: '/' });
+  req.session.destroy(() => res.redirect('/'));
+});
+
 app.post('/auth/logout', (req, res) => {
   res.clearCookie(AUTH_COOKIE, { path: '/' });
   req.session.destroy(() => res.json({ ok: true }));
