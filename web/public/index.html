@@ -37,7 +37,8 @@
       <div class="progress hidden" id="progress"></div>
 
       <nav class="lnb-nav">
-        <button class="nav-item active" data-view="spin">🎰 <span data-i18n="navSpin">랜덤 스핀</span></button>
+        <button class="nav-item active" data-view="daily">🎴 <span data-i18n="navDaily">오늘의 도전</span></button>
+        <button class="nav-item" data-view="spin">🎰 <span data-i18n="navSpin">랜덤 스핀</span></button>
         <button class="nav-item" data-view="resume">↩️ <span data-i18n="navResume">이어하기</span></button>
         <button class="nav-item" data-view="collection">🏅 <span data-i18n="navCollection">수집함</span></button>
         <button class="nav-item" data-view="games">🎮 <span data-i18n="navGames">내 게임</span></button>
@@ -55,8 +56,13 @@
 
     <!-- 메인 -->
     <main class="main">
+      <!-- 뷰: 오늘의 도전 (뽑기 루프) -->
+      <section id="view-daily" class="view">
+        <div id="dailyContent"></div>
+      </section>
+
       <!-- 뷰: 랜덤 스핀 -->
-      <section id="view-spin" class="view spin-view">
+      <section id="view-spin" class="view hidden spin-view">
         <div class="spin-stage" id="spinStage">
           <div class="coverflow" id="coverflow"></div>
         </div>

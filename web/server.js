@@ -16,6 +16,8 @@ const { buildFriendCoop } = require('../src/friendsCoop');
 const { buildGameDetail } = require('../src/gameDetail');
 const { buildResume } = require('../src/resume');
 const { buildCollection } = require('../src/collection');
+const draw = require('../src/draw');
+const store = require('../src/store');
 const openid = require('./src/steamOpenId');
 
 const env = loadEnv(path.join(__dirname, '..', '.env'));
@@ -27,6 +29,7 @@ const API_KEY = env.STEAM_API_KEY;
 const PORT = Number(env.PORT || 3000);
 const BASE_URL = env.BASE_URL || `http://localhost:${PORT}`;
 const CACHE_DIR = path.join(__dirname, '.cache');
+const STATE_DIR = path.join(__dirname, '.state');
 
 const AUTH_SECRET = env.SESSION_SECRET || 'dev-secret-change-me';
 const AUTH_COOKIE = 'gd_auth';
@@ -260,6 +263,78 @@ app.get('/api/resume', requireAuth, (req, res) => {
   if (!cache) return res.json({ active: [], dropped: [], summary: {}, droppedTotal: 0 });
   const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 50);
   res.json(buildResume(cache, { limit }));
+});
+
+// ── 뽑기 루프 ────────────────────────────────────────────────────
+// 카드 3장 → 1장 선택 → 나가서 플레이 → 돌아오면 판정.
+// 판정은 별도 잡 없이 읽을 때마다 현재 캐시로 계산한다. 동기화는 이미
+// 로그인 시·20분마다·탭 복귀 시 자동으로 돈다.
+
+// 프론트에 내려줄 모양으로 정리
+function drawPayload(state, justCompleted, now) {
+  const cur = state.current || { cards: [], picked: null };
+  return {
+    cards: cur.cards || [],
+    picked: cur.picked || null,
+    drawnAt: cur.drawnAt || null,
+    justCompleted: justCompleted || null,
+    rerollAvailable: draw.rerollAvailable(state, now),
+    stats: state.stats || { done: 0 },
+    // 성공만 보여준다. 포기는 기록만 남기고 화면에 내지 않는다.
+    recent: (state.history || []).filter((h) => h.status === 'done').slice(0, 8),
+  };
+}
+
+// 캐시 없이는 뽑을 게 없다
+function loadForDraw(req) {
+  const steamId = req.session.steamId;
+  const cache = cacheStore.loadCache(CACHE_DIR, steamId);
+  return { steamId, cache };
+}
+
+app.get('/api/draw', requireAuth, (req, res) => {
+  const now = Math.floor(Date.now() / 1000);
+  const { steamId, cache } = loadForDraw(req);
+  if (!cache) return res.json({ cards: [], picked: null, needsSync: true, stats: { done: 0 }, recent: [] });
+
+  const before = store.loadState(STATE_DIR, steamId);
+  const { state, justCompleted } = draw.advance(before, cache, { now });
+  store.saveState(STATE_DIR, steamId, state);
+  res.json(drawPayload(state, justCompleted, now));
+});
+
+app.post('/api/draw/pick', requireAuth, (req, res) => {
+  const now = Math.floor(Date.now() / 1000);
+  const { steamId, cache } = loadForDraw(req);
+  if (!cache) return res.status(400).json({ error: 'no-cache' });
+
+  const state = store.loadState(STATE_DIR, steamId);
+  const r = draw.pick(state, Number(req.body && req.body.index), now);
+  if (!r.ok) return res.status(409).json({ error: r.error });
+  store.saveState(STATE_DIR, steamId, r.state);
+  res.json(drawPayload(r.state, null, now));
+});
+
+app.post('/api/draw/reroll', requireAuth, (req, res) => {
+  const now = Math.floor(Date.now() / 1000);
+  const { steamId, cache } = loadForDraw(req);
+  if (!cache) return res.status(400).json({ error: 'no-cache' });
+
+  const r = draw.reroll(store.loadState(STATE_DIR, steamId), cache, { now });
+  if (!r.ok) return res.status(409).json({ error: r.error });
+  store.saveState(STATE_DIR, steamId, r.state);
+  res.json(drawPayload(r.state, null, now));
+});
+
+app.post('/api/draw/giveup', requireAuth, (req, res) => {
+  const now = Math.floor(Date.now() / 1000);
+  const { steamId, cache } = loadForDraw(req);
+  if (!cache) return res.status(400).json({ error: 'no-cache' });
+
+  const r = draw.giveUp(store.loadState(STATE_DIR, steamId), cache, { now });
+  if (!r.ok) return res.status(409).json({ error: r.error });
+  store.saveState(STATE_DIR, steamId, r.state);
+  res.json(drawPayload(r.state, null, now));
 });
 
 // 수집함 — 이미 딴 것 중 희귀한 것들. 캐시만 쓴다.

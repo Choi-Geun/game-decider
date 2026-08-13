@@ -125,6 +125,7 @@ async function loadGames() {
     state.achievementsBlocked = !!d.achievementsBlocked;
     resumeData = null; // 동기화로 진행도가 바뀌었을 수 있으니 다시 계산시킨다
     collectionData = null;
+    dailyData = null;  // 동기화가 곧 판정이다 — 고른 도전이 깨졌는지 여기서 드러난다
   } catch (e) {}
   renderView();
   // 최초 1회만 자동 스핀 (동기화 후 재호출돼도 다시 안 돎)
@@ -180,12 +181,12 @@ $('sync').addEventListener('click', () => startSync(false));
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
 //   #spin | #games | #games/{appid} | #ach | #friends
-const VIEWS = ['spin', 'resume', 'collection', 'games', 'ach', 'friends'];
+const VIEWS = ['daily', 'spin', 'resume', 'collection', 'games', 'ach', 'friends'];
 
 function parseHash() {
   const raw = (location.hash || '').replace(/^#\/?/, '');
   const [view, param] = raw.split('/');
-  return { view: VIEWS.includes(view) ? view : 'spin', param: param || null };
+  return { view: VIEWS.includes(view) ? view : 'daily', param: param || null };
 }
 
 // 뷰 전환의 단일 진입점 — 해시가 바뀔 때만 호출된다.
@@ -225,7 +226,8 @@ document.querySelectorAll('.nav-item').forEach((b) =>
 window.addEventListener('hashchange', applyRoute);
 
 function renderView() {
-  if (state.view === 'resume') renderResume();
+  if (state.view === 'daily') renderDaily();
+  else if (state.view === 'resume') renderResume();
   else if (state.view === 'collection') renderCollection();
   else if (state.view === 'games') renderGames();
   else if (state.view === 'ach') renderAch();
@@ -491,6 +493,130 @@ $('resumeContent').addEventListener('click', (e) => {
   if (e.target.closest('.rc-play')) return;
   const card = e.target.closest('.resume-card');
   if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);
+});
+
+// ── 오늘의 도전 (뽑기 루프) ───────────────────────────────────────
+// 읽고 끝나는 화면이 아니라, 미해결 상태를 하나 안고 나가게 만드는 장치.
+// 세 장 중 하나만 고를 수 있다 — 버린 두 장이 아까워야 고른 하나에 무게가 생긴다.
+let dailyData = null, dailyBusy = false;
+
+async function loadDaily(force) {
+  if (dailyBusy) return;
+  if (dailyData && !force) return;
+  dailyBusy = true;
+  try { dailyData = await fetch('/api/draw').then((r) => r.json()); }
+  catch (e) { dailyData = null; }
+  dailyBusy = false;
+  if (state.view === 'daily') renderDaily();
+}
+
+async function dailyAction(pathname, body) {
+  if (dailyBusy) return;
+  dailyBusy = true;
+  try {
+    const r = await fetch(pathname, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    const d = await r.json();
+    if (!d.error) dailyData = d;
+  } catch (e) {}
+  dailyBusy = false;
+  renderDaily();
+}
+
+// 왜 이 카드가 이 슬롯에 있는지 한 줄로. 이게 없으면 그냥 랜덤과 구별이 안 된다.
+function cardWhy(c) {
+  if (c.slot === 'light' && c.paceMinutes != null) return t('whyPace', { m: c.paceMinutes });
+  if (c.slot === 'comeback' && c.dormantDays != null) return t('whyDormant', { when: agoText(c.dormantDays) });
+  if (c.playtimeMinutes) return t('whyPlaytime', { h: Math.max(1, Math.round(c.playtimeMinutes / 60)) });
+  return '';
+}
+
+function drawCardHtml(c, i, picked) {
+  const slotKey = 'slot' + c.slot.charAt(0).toUpperCase() + c.slot.slice(1);
+  const g = { appid: c.appid, name: c.gameName, images: c.images };
+  return `<article class="draw-card${picked ? ' is-picked' : ''}" style="--i:${i}" data-index="${i}">
+    <span class="dc-art"><img src="${imgHeader(g)}" ${coverAttrs(g)}></span>
+    <span class="dc-slot">${t(slotKey)}</span>
+    <span class="dc-body">
+      <span class="dc-tier">${tierBadge(c.tier)}<span class="dc-pct">${c.globalPercent}%</span></span>
+      <span class="dc-ach">${esc(c.achName)}</span>
+      ${c.achDesc ? `<span class="dc-desc">${esc(c.achDesc)}</span>` : ''}
+      <span class="dc-game">${esc(c.gameName)}</span>
+      <span class="dc-why">${esc(cardWhy(c))}</span>
+    </span>
+    ${picked
+      ? `<span class="dc-actions">
+           <a class="dc-play" href="${steamRunUrl(c.appid)}">${t('dailyGo')}</a>
+           <span class="dc-note">${t('dailyComeBack')}</span>
+         </span>`
+      : `<button class="dc-pick" data-pick="${i}">${t('pickThis')}</button>`}
+  </article>`;
+}
+
+function renderDaily() {
+  const box = $('dailyContent');
+  if (!box) return;
+  if (!dailyData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadDaily(); return; }
+  if (dailyData.needsSync) { box.innerHTML = `<div class="empty">${t('dailyNeedSync')}</div>`; return; }
+
+  const { cards = [], picked, justCompleted, rerollAvailable, stats = {}, recent = [] } = dailyData;
+
+  // 판정 연출 — 이번 호출에서 확정된 성공만. 한 번 보여주고 소비한다.
+  const doneHtml = justCompleted
+    ? `<section class="done-banner">
+        <span class="db-mark">🏆</span>
+        <span class="db-body">
+          <span class="db-title">${t('doneTitle')}</span>
+          <span class="db-ach">${esc(justCompleted.achName)}
+            <span class="db-pct">${justCompleted.globalPercent}%</span></span>
+          <span class="db-sub">${esc(justCompleted.gameName)} · ${t('doneSub')}</span>
+        </span>
+      </section>`
+    : '';
+
+  if (!cards.length) {
+    box.innerHTML = doneHtml + `<div class="empty">${t('dailyEmpty')}</div>`;
+    return;
+  }
+
+  const isPicked = picked != null;
+  const shown = isPicked ? [cards[picked.index]] : cards;
+
+  const head = `<div class="daily-head">
+    <h2>${t('dailyTitle')}</h2>
+    <span class="daily-stats">${t('statsDone', { n: stats.done || 0 })}</span>
+  </div>
+  <p class="view-lead">${isPicked ? t('dailyPickedLead') : t('dailyLead')}</p>`;
+
+  const deck = `<div class="draw-deck${isPicked ? ' single' : ''}">
+    ${shown.map((c, i) => drawCardHtml(c, isPicked ? picked.index : i, isPicked)).join('')}
+  </div>`;
+
+  // 재뽑기는 하루 1회. 선택 전이면 '다시 뽑기', 선택 후면 '접고 다시 뽑기'.
+  const foot = rerollAvailable
+    ? `<div class="daily-foot"><button class="daily-reroll" data-act="${isPicked ? 'giveup' : 'reroll'}">
+        ${isPicked ? t('giveUpBtn') : t('rerollBtn')}</button></div>`
+    : `<div class="daily-foot"><span class="daily-note">${t('rerollUsed')}</span></div>`;
+
+  const recentHtml = recent.length
+    ? `<section class="coll-block"><h3 class="cb-title">${t('recentDone')}</h3>
+        <div class="hscroll">${recent.map((h) => trophyCard({
+          appid: h.appid, gameName: h.gameName, images: h.images, name: h.achName,
+          globalPercent: h.globalPercent, tier: h.tier,
+        })).join('')}</div></section>`
+    : '';
+
+  box.innerHTML = doneHtml + head + deck + foot + recentHtml;
+}
+
+$('dailyContent').addEventListener('click', (e) => {
+  const pickBtn = e.target.closest('[data-pick]');
+  if (pickBtn) return dailyAction('/api/draw/pick', { index: Number(pickBtn.dataset.pick) });
+  const act = e.target.closest('[data-act]');
+  if (act) return dailyAction('/api/draw/' + act.dataset.act);
 });
 
 // ── 수집함 ────────────────────────────────────────────────────────
