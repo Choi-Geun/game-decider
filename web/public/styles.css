@@ -70,7 +70,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .spin-stage { position: relative; width: 100%; flex: 1; min-height: 360px; perspective: 1700px; perspective-origin: 50% 48%; overflow: hidden; background: radial-gradient(120% 90% at 50% 18%, #1a2030, var(--bg)); border-radius: 18px; border: 1px solid var(--line); }
 .coverflow { position: absolute; inset: 0; transform-style: preserve-3d; }
 .cf-card { position: absolute; left: 50%; top: 50%; width: clamp(210px, 24vw, 380px); aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 28px 54px rgba(0,0,0,.6); backface-visibility: hidden; will-change: transform; }
-.cf-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cf-card img, .cf-card .cover-fallback { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cf-card.center { outline: 3px solid var(--accent); box-shadow: 0 0 70px rgba(91,108,255,.6), 0 28px 54px rgba(0,0,0,.6); }
 
 .reroll { display: block; margin: 4px auto 0; padding: 16px 60px; border: none; border-radius: 16px; background: linear-gradient(90deg, #5b6cff, #7c5bff); color: #fff; font-size: 19px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 26px rgba(91,108,255,.4); transition: transform .08s; }
@@ -91,7 +91,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
 .game-card { border-radius: 12px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); cursor: pointer; transition: transform .1s, border-color .1s; }
 .game-card:hover { transform: translateY(-3px); border-color: var(--accent); }
-.game-card img { width: 100%; aspect-ratio: 460/215; object-fit: cover; display: block; background: var(--panel2); }
+.game-card img, .game-card .cover-fallback { width: 100%; aspect-ratio: 460/215; object-fit: cover; display: block; background: var(--panel2); }
 .game-card .gc-body { padding: 10px; }
 .game-card .gc-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .game-card .gc-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
@@ -102,7 +102,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .game-detail { max-width: 1000px; }
 .detail-back { background: none; border: 1px solid var(--line); color: var(--muted); padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13px; margin-bottom: 16px; }
 .detail-hero { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
-.detail-hero img { width: 100%; height: 260px; object-fit: cover; display: block; }
+.detail-hero img, .detail-hero .cover-fallback { width: 100%; height: 260px; object-fit: cover; display: block; }
 .detail-hero .dh-shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(14,15,19,.96), rgba(14,15,19,.1) 60%); }
 .detail-hero .dh-body { position: absolute; left: 22px; right: 22px; bottom: 18px; }
 .detail-hero h2 { font-size: 30px; margin: 0 0 6px; }
@@ -132,7 +132,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .news-item .n-date { color: var(--muted); font-size: 11px; margin-top: 2px; }
 .dlc-grid { display: flex; flex-direction: column; gap: 8px; }
 .dlc-item { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
-.dlc-item img { width: 54px; height: 25px; object-fit: cover; border-radius: 4px; }
+.dlc-item img, .dlc-item .cover-fallback { width: 54px; height: 25px; object-fit: cover; border-radius: 4px; }
 .dlc-item .dlc-name { font-size: 13px; font-weight: 600; }
 .dlc-item .dlc-price { margin-left: auto; font-size: 12px; color: var(--accent2); }
 
@@ -146,7 +146,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .ach-group .gh-sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
-.chip img { width: 36px; height: 17px; object-fit: cover; border-radius: 3px; }
+.chip img, .chip .cover-fallback { width: 36px; height: 17px; object-fit: cover; border-radius: 3px; }
 .chip .pct { color: var(--accent2); font-size: 11px; }
 .ach-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
 .ach-row:first-child { border-top: none; }
@@ -162,7 +162,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .game-acc { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .game-acc summary { padding: 14px 16px; cursor: pointer; display: flex; align-items: center; gap: 12px; list-style: none; }
 .game-acc summary::-webkit-details-marker { display: none; }
-.game-acc summary img { width: 60px; height: 28px; object-fit: cover; border-radius: 4px; }
+.game-acc summary img, .game-acc summary .cover-fallback { width: 60px; height: 28px; object-fit: cover; border-radius: 4px; }
 .game-acc .ga-name { font-weight: 700; font-size: 14px; }
 .game-acc .ga-pct { margin-left: auto; color: var(--muted); font-size: 12px; }
 .game-acc .ga-body { padding: 0 16px 12px; }
@@ -199,3 +199,28 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   .spin-stage { height: 60vh; flex: none; }
   .cf-card { width: clamp(120px, 42vw, 200px); }
 }
+
+/* ── 커버 이미지 폴백 ──────────────────────────────────────────────
+   Steam CDN에 아트가 없는 게임(미출시·베타 등)용. 빈칸 대신 게임명을 보여준다.
+   위 규칙들이 크기를, 여기서는 내용을 담당한다. */
+.cover-fallback {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .5em; padding: .6em; text-align: center; overflow: hidden;
+  background: linear-gradient(145deg, #2b3350, #161822);
+  color: var(--text); font-size: 13px; line-height: 1.3;
+}
+.cover-fallback .covf-glyph { font-size: 1.9em; line-height: 1; color: #8f9ad6; }
+.cover-fallback .covf-title {
+  font-weight: 700; max-width: 100%;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* 큰 면적 */
+.cf-card .cover-fallback { font-size: 16px; gap: .8em; padding: 1.4em; }
+.detail-hero .cover-fallback { font-size: 20px; }
+/* 작은 썸네일 — 글리프만 */
+.chip .cover-fallback, .dlc-item .cover-fallback, .game-acc summary .cover-fallback { gap: 0; padding: 0; }
+.chip .cover-fallback .covf-title,
+.dlc-item .cover-fallback .covf-title,
+.game-acc summary .cover-fallback .covf-title { display: none; }
+.chip .cover-fallback .covf-glyph { font-size: 11px; }
+.dlc-item .cover-fallback .covf-glyph, .game-acc summary .cover-fallback .covf-glyph { font-size: 15px; }

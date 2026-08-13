@@ -10,6 +10,46 @@ function fmtDate(unix) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// ── 커버 이미지 폴백 ──────────────────────────────────────────────
+// 이미지 URL은 appid로 조립할 뿐 검증하지 않는다. 미출시·베타 타이틀은 Steam CDN에
+// 아트가 아예 없어서(portrait/header 모두 404) 그냥 두면 빈칸이 남는다.
+// 로드 실패 시 게임명을 보여주는 카드로 대체한다.
+//
+// 사용법: <img data-fallback="게임명" data-alt="차선책 URL"> — data-alt 이 있으면
+// 먼저 그쪽으로 한 번 재시도하고, 그것도 실패하면 폴백 카드로 바꾼다.
+function coverAttrs(g, altUrl) {
+  return `data-fallback="${esc(g.name)}"${altUrl ? ` data-alt="${esc(altUrl)}"` : ''}`;
+}
+function coverFallbackEl(name, className) {
+  const el = document.createElement('div');
+  el.className = ['cover-fallback', className].filter(Boolean).join(' ');
+  const glyph = document.createElement('span');
+  glyph.className = 'covf-glyph';
+  glyph.textContent = '🎮';
+  const title = document.createElement('span');
+  title.className = 'covf-title';
+  title.textContent = name || '';
+  el.append(glyph, title);
+  el.title = name || '';
+  return el;
+}
+// error 이벤트는 버블링하지 않으므로 캡처 단계에서 문서 전체를 한 번에 처리한다.
+document.addEventListener(
+  'error',
+  (e) => {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG' || img.dataset.fallback == null) return;
+    if (img.dataset.alt) {
+      const next = img.dataset.alt;
+      delete img.dataset.alt; // 재시도는 한 번만
+      img.src = next;
+      return;
+    }
+    img.replaceWith(coverFallbackEl(img.dataset.fallback, img.className));
+  },
+  true
+);
+
 const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'status', lastPick: null, didInitialSpin: false };
 
 // ── 언어 전환 ─────────────────────────────────────────────────────
@@ -275,7 +315,7 @@ function layout(position, focus) {
 function layoutStatic() { if (cardEls.length) layout(landIndex, curFocus); }
 function renderDeck() {
   const cf = $('coverflow');
-  cf.innerHTML = deck.map((g) => `<div class="cf-card"><img src="${imgPortrait(g)}" onerror="this.onerror=null;this.src='${imgHeader(g)}'"></div>`).join('');
+  cf.innerHTML = deck.map((g) => `<div class="cf-card"><img src="${imgPortrait(g)}" ${coverAttrs(g, imgHeader(g))}></div>`).join('');
   cardEls = Array.from(cf.children);
 }
 function showPick(g) {
@@ -339,7 +379,7 @@ function renderGames() {
     const pct = g.ach && g.ach.completionPct;
     const meta = pct != null ? t('completion', { pct }) : (g.playtimeMinutes ? Math.round(g.playtimeMinutes / 60) + t('hours') : '');
     const bar = pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : '';
-    return `<div class="game-card" data-appid="${g.appid}"><img src="${imgHeader(g)}" onerror="this.style.opacity=.12"><div class="gc-body"><div class="gc-name">${esc(g.name)}</div><div class="gc-meta">${meta}</div>${bar}</div></div>`;
+    return `<div class="game-card" data-appid="${g.appid}"><img src="${imgHeader(g)}" ${coverAttrs(g)}><div class="gc-body"><div class="gc-name">${esc(g.name)}</div><div class="gc-meta">${meta}</div>${bar}</div></div>`;
   }).join('') || `<div class="empty">${t('emptyGroup')}</div>`;
 }
 $('gameSearch').addEventListener('input', renderGames);
@@ -431,7 +471,7 @@ function renderDetail(appid, d) {
   // DLC 카드
   const dlc = d.dlc || [];
   const dlcInner = dlc.length ? `<div class="dlc-grid">` + dlc.map((x) =>
-    `<a class="dlc-item" href="https://store.steampowered.com/app/${x.appid}" target="_blank" rel="noopener"><img src="${esc(x.header)}" onerror="this.style.opacity=.15"><span class="dlc-name">${esc(x.name)}</span>${x.price ? `<span class="dlc-price">${esc(x.price)}</span>` : ''}</a>`
+    `<a class="dlc-item" href="https://store.steampowered.com/app/${x.appid}" target="_blank" rel="noopener"><img src="${esc(x.header)}" data-fallback="${esc(x.name)}"><span class="dlc-name">${esc(x.name)}</span>${x.price ? `<span class="dlc-price">${esc(x.price)}</span>` : ''}</a>`
   ).join('') + `</div>` + (d.dlcTotal > dlc.length ? `<div class="gh-sub" style="margin-top:8px">${t('dDlcMore', { n: d.dlcTotal - dlc.length })}</div>` : '') : `<div class="empty">${t('dNoDlc')}</div>`;
   const dlcCard = `<div class="d-card"><h3>🧩 ${t('dDlc')}</h3>${dlcInner}</div>`;
 
@@ -439,7 +479,7 @@ function renderDetail(appid, d) {
 
   $('gameDetail').innerHTML =
     `<button class="detail-back" id="detailBack">${t('back')}</button>` +
-    `<div class="detail-hero"><img src="${esc(hero)}" onerror="this.style.opacity=.2"><div class="dh-shade"></div><div class="dh-body"><h2>${esc(name)}${cachedNote}</h2><div class="detail-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div></div></div>` +
+    `<div class="detail-hero"><img src="${esc(hero)}" data-fallback="${esc(name)}"><div class="dh-shade"></div><div class="dh-body"><h2>${esc(name)}${cachedNote}</h2><div class="detail-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div></div></div>` +
     `<div class="detail-actions"><a class="d-play" href="${steamRunUrl(appid)}">${t('dPlay')}</a><a class="d-steam" href="https://store.steampowered.com/app/${appid}" target="_blank" rel="noopener">${t('dSteam')}</a></div>` +
     (info.shortDescription ? `<div class="detail-desc">${esc(info.shortDescription)}</div>` : '') +
     `<div class="detail-grid">${progCard}${revCard}${achCard}${newsCard}${dlcCard}</div>`;
@@ -468,7 +508,7 @@ function renderAch() {
 function gameChips(games) {
   if (!games.length) return `<div class="empty">${t('emptyGroup')}</div>`;
   return `<div class="chip-row">` + games.map((g) =>
-    `<a class="chip" href="${steamRunUrl(g.appid)}"><img src="${imgHeader(g)}">${esc(g.name)}<span class="pct">${g.ach.completionPct}%</span></a>`
+    `<a class="chip" href="${steamRunUrl(g.appid)}"><img src="${imgHeader(g)}" ${coverAttrs(g)}>${esc(g.name)}<span class="pct">${g.ach.completionPct}%</span></a>`
   ).join('') + `</div>`;
 }
 function achGroupBox(title, sub, inner) {
@@ -516,7 +556,7 @@ function renderAchByGame(games) {
       .sort((a, b) => Number(b.achieved) - Number(a.achieved))
       .map((a) => `<div class="ach-row ${a.achieved ? '' : 'locked'}"><div><div class="a-name">${a.achieved ? '🏅 ' : '🔒 '}${esc(a.name)}</div><div class="a-desc">${esc(a.description)}</div></div><div class="a-pct">${a.globalPercent != null ? a.globalPercent.toFixed(1) + '%' : ''}</div></div>`)
       .join('');
-    return `<details class="game-acc"><summary><img src="${imgHeader(g)}"><span class="ga-name">${esc(g.name)}</span><span class="ga-pct">${t('achCount', { u: g.ach.unlocked, t: g.ach.total })} · ${g.ach.completionPct}%</span></summary><div class="ga-body">${rows}</div></details>`;
+    return `<details class="game-acc"><summary><img src="${imgHeader(g)}" ${coverAttrs(g)}><span class="ga-name">${esc(g.name)}</span><span class="ga-pct">${t('achCount', { u: g.ach.unlocked, t: g.ach.total })} · ${g.ach.completionPct}%</span></summary><div class="ga-body">${rows}</div></details>`;
   }).join('');
 }
 
@@ -549,7 +589,7 @@ function renderFriends(res) {
       const playing = o.playingThis ? ` <span class="playing">${t('playingNow')}</span>` : o.inGameName ? ` <span class="playing">(${esc(o.inGameName)})</span>` : '';
       return `<span class="owner ${o.online ? 'on' : ''}"><span class="dot"></span>${av}${esc(o.name)}${playing}</span>`;
     }).join('');
-    return `<div class="friend-game"><img class="fg-img" src="${img}" onerror="this.style.display='none'"><div class="fg-body"><div class="fg-top"><span class="fg-name">${esc(g.name)}</span> <span class="fg-tag">${tag}</span><a class="fg-play" href="${steamRunUrl(g.appid)}">▶ ${t('play')}</a></div><div class="owners">${owners}</div></div></div>`;
+    return `<div class="friend-game"><img class="fg-img" src="${img}" ${coverAttrs(g)}><div class="fg-body"><div class="fg-top"><span class="fg-name">${esc(g.name)}</span> <span class="fg-tag">${tag}</span><a class="fg-play" href="${steamRunUrl(g.appid)}">▶ ${t('play')}</a></div><div class="owners">${owners}</div></div></div>`;
   }).join('');
 }
 
