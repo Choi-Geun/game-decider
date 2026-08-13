@@ -511,11 +511,40 @@ async function loadCollection() {
 // 2.1% 보다 "1000명 중 21명"이 훨씬 와닿는다.
 const perThousand = (pct) => Math.max(1, Math.round(pct * 10));
 
-function trophyChip(a) {
-  return `<a class="trophy t-${a.tier}" href="#games/${a.appid}" title="${esc(a.name)} — ${esc(a.gameName)}">
-    <span class="tr-pct">${a.globalPercent}%</span>
-    <span class="tr-name">${esc(a.name)}</span>
-    <span class="tr-game">${esc(a.gameName)}</span>
+// 등급은 색만으로 구분하면 안 들어온다. 항상 글자 배지를 같이 단다.
+const TIER_ICON = { legendary: '🏆', rare: '💎', normal: '🔹', common: '·' };
+function tierBadge(tier) {
+  const key = 'tier' + tier.charAt(0).toUpperCase() + tier.slice(1);
+  return `<span class="tier-badge t-${tier}">${TIER_ICON[tier]} ${t(key)}</span>`;
+}
+
+// 텍스트만 있으면 "뭘 보라는 건데?"가 된다. 트로피에도 게임 아트를 붙인다.
+function trophyCard(a) {
+  const g = { appid: a.appid, name: a.gameName, images: a.images };
+  return `<a class="trophy-card t-${a.tier}" href="#games/${a.appid}" title="${esc(a.name)} — ${esc(a.gameName)}">
+    <span class="tc-art"><img src="${imgHeader(g)}" ${coverAttrs(g)}></span>
+    <span class="tc-badge">${tierBadge(a.tier)}</span>
+    <span class="tc-body">
+      <span class="tc-pct">${a.globalPercent}%</span>
+      <span class="tc-name">${esc(a.name)}</span>
+      <span class="tc-game">${esc(a.gameName)}</span>
+    </span>
+  </a>`;
+}
+
+// 게임별 카드 — 내 수집이 어디에 몰려 있는지 한눈에
+function gameCollectionCard(g) {
+  const pills = [];
+  if (g.counts.legendary) pills.push(`<span class="cnt-pill t-legendary">${TIER_ICON.legendary} ${t('tierLegendary')} ${g.counts.legendary}</span>`);
+  if (g.counts.rare) pills.push(`<span class="cnt-pill t-rare">${TIER_ICON.rare} ${t('tierRare')} ${g.counts.rare}</span>`);
+  if (!pills.length) pills.push(`<span class="cnt-pill t-common">${t('tierTotal')} ${g.counts.total}</span>`);
+  return `<a class="gcol-card" href="#games/${g.appid}" title="${esc(g.name)}">
+    <span class="gc-art"><img src="${imgHeader(g)}" ${coverAttrs(g)}></span>
+    <span class="gc-body">
+      <span class="gc-name">${esc(g.name)}</span>
+      <span class="gc-pills">${pills.join('')}</span>
+      <span class="gc-prog">${t('achCount', { u: g.unlocked, t: g.total })} · ${g.completionPct}%</span>
+    </span>
   </a>`;
 }
 
@@ -524,14 +553,28 @@ function renderCollection() {
   if (!box) return;
   if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
 
-  const { counts, crown, showcase, nextTargets, harvest } = collectionData;
+  const { counts, crown, showcase, games, nextTargets, harvest } = collectionData;
   if (!crown) { box.innerHTML = `<div class="empty">${t('collectionEmpty')}</div>`; return; }
 
-  // 왕관 — 하나만 크게. 이게 없으면 또 평평한 격자가 된다.
+  // 등급 인덱스 — 색만으로는 안 들어온다. 기준을 글자로 못박는다.
+  const tiles = [
+    { key: 'legendary', n: counts.legendary },
+    { key: 'rare', n: counts.rare },
+  ].map((x) => `<div class="tier-tile t-${x.key}">
+      <span class="tt-head">${TIER_ICON[x.key]} ${t('tier' + x.key.charAt(0).toUpperCase() + x.key.slice(1))}</span>
+      <span class="tt-n">${x.n}</span>
+      <span class="tt-desc">${t(x.key === 'legendary' ? 'tierLegendaryDesc' : 'tierRareDesc')}</span>
+    </div>`).join('');
+  const tilesHtml = `<div class="tier-row">${tiles}
+    <div class="tier-tile t-total"><span class="tt-head">${t('tierTotal')}</span>
+      <span class="tt-n">${counts.total}</span><span class="tt-desc">&nbsp;</span></div>
+  </div>`;
+
+  // 왕관 — 최고 기록 하나는 여전히 크게 세운다
   const crownHtml = `<section class="crown-card">
     <img class="crown-art" src="${imgHeader(crown)}" data-fallback="${esc(crown.gameName)}">
     <div class="crown-body">
-      <span class="crown-label">${t('crownLabel')}</span>
+      <span class="crown-badge">${tierBadge(crown.tier)}<span class="crown-label">${t('crownLabel')}</span></span>
       <div class="crown-pct">${crown.globalPercent}%</div>
       <h3 class="crown-name">${esc(crown.name)}</h3>
       <div class="crown-game">${esc(crown.gameName)}${crown.unlockTime ? ` · ${fmtDate(crown.unlockTime)}` : ''}</div>
@@ -539,38 +582,39 @@ function renderCollection() {
     </div>
   </section>`;
 
-  // 등급 요약 — 전설 개수가 헤드라인이다
-  const tiles = [
-    { key: 'legendary', n: counts.legendary },
-    { key: 'rare', n: counts.rare },
-  ].map((x) => `<div class="tier-tile t-${x.key}">
-      <span class="tt-n">${x.n}</span>
-      <span class="tt-name">${t('tier' + x.key.charAt(0).toUpperCase() + x.key.slice(1))}</span>
-      <span class="tt-desc">${t(x.key === 'legendary' ? 'tierLegendaryDesc' : 'tierRareDesc')}</span>
-    </div>`).join('');
-  const tilesHtml = `<div class="tier-row">${tiles}
-    <div class="tier-tile t-total"><span class="tt-n">${counts.total}</span>
-      <span class="tt-name">${t('tierTotal')}</span></div>
-  </div>`;
-
+  // 트로피 진열 — 가로 스크롤. 각 카드에 게임 아트 + 등급 배지
   const shelf = showcase.length
-    ? `<section class="coll-block"><div class="trophy-shelf">${showcase.map(trophyChip).join('')}</div></section>`
+    ? `<section class="coll-block">
+        <h3 class="cb-title">${t('trophyShelf')}<span class="cb-sub">${t('trophyShelfLead')}</span></h3>
+        <div class="hscroll">${showcase.map(trophyCard).join('')}</div>
+      </section>`
     : '';
+
+  // 게임별 현황 — "내 다른 게임들은 어떤 상태인지"
+  const gamesHtml = `<section class="coll-block">
+    <h3 class="cb-title">${t('gameShelf')}<span class="cb-sub">${t('gameShelfLead')}</span></h3>
+    ${games && games.length
+      ? `<div class="hscroll">${games.map(gameCollectionCard).join('')}</div>`
+      : `<div class="empty">${t('gameShelfEmpty')}</div>`}
+  </section>`;
 
   // 앞으로 향하게 하는 유일한 장치. 이게 없으면 수집함은 과거 기록일 뿐이다.
   const nextHtml = nextTargets.length
     ? `<section class="coll-block">
         <h3 class="cb-title">${t('nextTargetTitle', { n: counts.legendary + 1 })}</h3>
         <p class="cb-lead">${t('nextTargetLead')}</p>
-        <div class="target-list">${nextTargets.map((x) => `
-          <div class="target">
+        <div class="target-list">${nextTargets.map((x) => {
+          const g = { appid: x.appid, name: x.gameName, images: x.images };
+          return `<div class="target">
+            <img class="tg-art" src="${imgHeader(g)}" ${coverAttrs(g)}>
             <span class="tg-pct t-legendary">${x.globalPercent}%</span>
             <span class="tg-body">
               <span class="tg-name">${esc(x.name)}</span>
               <span class="tg-game">${esc(x.gameName)} · ${t('nextTargetPlayed', { h: Math.round(x.playtimeMinutes / 60) })}</span>
             </span>
             <a class="tg-go" href="${steamRunUrl(x.appid)}">▶ ${t('challenge')}</a>
-          </div>`).join('')}</div>
+          </div>`;
+        }).join('')}</div>
       </section>`
     : '';
 
@@ -578,11 +622,11 @@ function renderCollection() {
     <h3 class="cb-title">${t('harvestTitle', { d: harvest.days })}
       <span class="cb-sub">${harvest.count ? t('collectionCount', { n: harvest.count }) + (harvest.rarest ? ' · ' + t('harvestRarest', { p: harvest.rarest.globalPercent }) : '') : ''}</span></h3>
     ${harvest.count
-      ? `<div class="trophy-shelf small">${harvest.items.map(trophyChip).join('')}</div>`
+      ? `<div class="hscroll">${harvest.items.map(trophyCard).join('')}</div>`
       : `<div class="empty">${t('harvestNone')}</div>`}
   </section>`;
 
-  box.innerHTML = tilesHtml + crownHtml + shelf + nextHtml + harvestHtml;
+  box.innerHTML = tilesHtml + crownHtml + shelf + gamesHtml + nextHtml + harvestHtml;
 }
 
 // ── 게임 상세 ─────────────────────────────────────────────────────

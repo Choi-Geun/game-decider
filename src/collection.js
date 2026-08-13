@@ -50,6 +50,41 @@ function flatten(games, filterFn) {
 const byRarest = (a, b) => a.globalPercent - b.globalPercent;
 
 /**
+ * 게임별 수집 현황.
+ *
+ * 가장 희귀한 하나만 보여주면 "이게 뭐지?"가 된다. 내 라이브러리 전체가 어떤
+ * 상태인지 같이 보여야 그 하나가 어디에 놓인 건지 이해된다.
+ * 전설을 많이 가진 게임이 앞으로 — 그 게임이 곧 내 수집의 본진이다.
+ */
+function byGame(games) {
+  return (games || [])
+    .map((game) => {
+      const list = (game.ach && game.ach.achievements) || [];
+      const counts = { legendary: 0, rare: 0, normal: 0, common: 0, total: 0 };
+      for (const a of list) {
+        if (!a.achieved || a.globalPercent == null) continue;
+        counts[tierOf(a.globalPercent)]++;
+        counts.total++;
+      }
+      return {
+        appid: game.appid,
+        name: game.name,
+        images: game.images || null,
+        counts,
+        unlocked: (game.ach && game.ach.unlocked) || 0,
+        total: (game.ach && game.ach.total) || 0,
+        completionPct: (game.ach && game.ach.completionPct) || 0,
+      };
+    })
+    .filter((g) => g.counts.total > 0)
+    .sort((a, b) => {
+      if (b.counts.legendary !== a.counts.legendary) return b.counts.legendary - a.counts.legendary;
+      if (b.counts.rare !== a.counts.rare) return b.counts.rare - a.counts.rare;
+      return b.counts.total - a.counts.total;
+    });
+}
+
+/**
  * "다음 한 개" 후보 — 남은 것 중 가장 손에 닿는 희귀 도전과제.
  *
  * 희귀한 것 중에서도 **가장 흔한 것**을 고른다. 가장 어려운 걸 들이밀면 목표가 아니라
@@ -98,6 +133,8 @@ function buildCollection(cache, opts = {}) {
     // 가장 희귀한 하나 — 헤드라인
     crown: unlocked[0] || null,
     showcase,
+    // 게임별 현황 — 내 수집이 어디에 몰려 있는지
+    games: byGame(games),
     // 다음 전설 후보. 수집함이 앞으로 향하게 하는 유일한 장치
     nextTargets: nextTargets(games, 'legendary', 3),
     harvest: {
@@ -109,4 +146,4 @@ function buildCollection(cache, opts = {}) {
   };
 }
 
-module.exports = { buildCollection, tierOf, TIERS, nextTargets };
+module.exports = { buildCollection, tierOf, TIERS, nextTargets, byGame };

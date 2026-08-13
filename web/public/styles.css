@@ -281,75 +281,123 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 }
 
 /* ── 수집함 ────────────────────────────────────────────────────────
-   원칙: 하나만 크게. 평평한 격자가 되면 또 대시보드다. */
+   원칙 ① 등급은 색만으로 구분하지 않는다 — 항상 글자 배지를 같이 단다.
+   원칙 ② 게임 정보에는 아트를 붙인다. 텍스트만 있으면 "뭘 보라는 건데?"가 된다. */
 :root {
   --t-legendary: #ffb545;
-  --t-rare: #a78bfa;
+  --t-rare: #b490ff;
+  --t-normal: #7fa8dd;
+  --t-common: #8a8f9e;
 }
 
-.tier-row { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+/* 등급 배지 — 아이콘 + 이름을 항상 함께 */
+.tier-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  border: 1px solid currentColor; white-space: nowrap;
+}
+.tier-badge.t-legendary { color: var(--t-legendary); background: #ffb5451f; }
+.tier-badge.t-rare { color: var(--t-rare); background: #b490ff1f; }
+.tier-badge.t-normal { color: var(--t-normal); background: #7fa8dd1a; }
+.tier-badge.t-common { color: var(--t-common); background: #8a8f9e18; }
+
+/* 등급 인덱스 */
+.tier-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
 .tier-tile {
-  flex: 1 1 150px; padding: 14px 16px; border-radius: 12px;
-  background: var(--panel); border: 1px solid var(--line); border-left-width: 3px;
+  flex: 1 1 170px; padding: 13px 16px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line);
 }
-.tier-tile.t-legendary { border-left-color: var(--t-legendary); }
-.tier-tile.t-rare { border-left-color: var(--t-rare); }
-.tier-tile.t-total { border-left-color: var(--line); opacity: .8; }
-.tt-n { display: block; font-size: 30px; font-weight: 800; line-height: 1.1; }
-.tier-tile.t-legendary .tt-n { color: var(--t-legendary); }
-.tier-tile.t-rare .tt-n { color: var(--t-rare); }
-.tt-name { display: block; margin-top: 2px; font-size: 13px; font-weight: 700; }
-.tt-desc { display: block; margin-top: 1px; font-size: 11px; color: var(--muted); }
+.tier-tile.t-legendary { border-color: #55401c; background: linear-gradient(180deg, #ffb5450d, transparent); }
+.tier-tile.t-rare { border-color: #453a63; background: linear-gradient(180deg, #b490ff0d, transparent); }
+.tt-head { display: block; font-size: 12px; font-weight: 800; }
+.tier-tile.t-legendary .tt-head { color: var(--t-legendary); }
+.tier-tile.t-rare .tt-head { color: var(--t-rare); }
+.tier-tile.t-total .tt-head { color: var(--muted); }
+.tt-n { display: block; font-size: 28px; font-weight: 800; line-height: 1.15; margin-top: 1px; }
+.tt-desc { display: block; font-size: 11px; color: var(--muted); }
 
-/* 왕관 — 가장 희귀한 하나. 이 화면의 주인공 */
+/* 왕관 */
 .crown-card {
-  position: relative; display: flex; align-items: stretch; gap: 0;
-  border-radius: 16px; overflow: hidden; margin-bottom: 20px;
-  background: var(--panel); border: 1px solid #4a3a1c;
+  display: flex; border-radius: 16px; overflow: hidden; margin-bottom: 26px;
+  background: var(--panel); border: 1px solid #55401c;
   box-shadow: 0 0 44px rgba(255, 181, 69, .10);
 }
-.crown-art { width: 300px; flex: none; object-fit: cover; display: block; filter: saturate(.9); }
-.crown-body { padding: 20px 24px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-.crown-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--t-legendary); font-weight: 700; }
-.crown-pct { font-size: 42px; font-weight: 800; line-height: 1.05; color: var(--t-legendary); margin: 2px 0 4px; }
-.crown-name { margin: 0; font-size: 21px; font-weight: 800; }
+.crown-art { width: 290px; flex: none; object-fit: cover; display: block; }
+.crown-body { padding: 18px 24px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.crown-badge { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+.crown-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.crown-pct { font-size: 40px; font-weight: 800; line-height: 1.05; color: var(--t-legendary); }
+.crown-name { margin: 2px 0 0; font-size: 21px; font-weight: 800; }
 .crown-game { margin-top: 3px; font-size: 13px; color: var(--muted); }
-.crown-note { margin-top: 10px; font-size: 13px; color: #d4d4de; }
+.crown-note { margin-top: 9px; font-size: 13px; color: #d4d4de; }
 
 .coll-block { margin-bottom: 26px; }
-.cb-title { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
-.cb-sub { margin-left: 10px; font-weight: 400; font-size: 13px; color: var(--muted); }
-.cb-lead { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.cb-title { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
+.cb-sub { margin-left: 10px; font-weight: 400; font-size: 12px; color: var(--muted); }
+.cb-lead { margin: -4px 0 12px; font-size: 13px; color: var(--muted); }
 
-/* 진열장 — 왕관 뒤의 나머지는 압축 칩으로 */
-.trophy-shelf { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
-.trophy-shelf.small { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-.trophy {
-  display: block; padding: 9px 12px; border-radius: 10px; text-decoration: none; color: inherit;
-  background: var(--panel); border: 1px solid var(--line); border-left-width: 3px;
-  transition: border-color .12s, transform .08s;
+/* 가로 스크롤 진열대 */
+.hscroll {
+  display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 12px;
+  scroll-snap-type: x proximity; scrollbar-width: thin;
 }
-.trophy:hover { transform: translateY(-1px); border-color: #3a3d4d; }
-.trophy.t-legendary { border-left-color: var(--t-legendary); }
-.trophy.t-rare { border-left-color: var(--t-rare); }
-/* 보통·흔함도 색을 준다. 안 주면 칩이 미완성처럼 보인다 (수확 목록엔 섞여 나온다) */
-.trophy.t-normal { border-left-color: #5b7ba8; }
-.trophy.t-common { border-left-color: #4a4d5c; }
-.trophy.t-normal .tr-pct { color: #8fb0dd; }
-.trophy.t-common .tr-pct { color: var(--muted); }
-.tr-pct { font-size: 12px; font-weight: 800; }
-.trophy.t-legendary .tr-pct { color: var(--t-legendary); }
-.trophy.t-rare .tr-pct { color: var(--t-rare); }
-.tr-name { display: block; margin-top: 1px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tr-game { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hscroll > * { scroll-snap-align: start; flex: none; }
+.hscroll::-webkit-scrollbar { height: 8px; }
+.hscroll::-webkit-scrollbar-thumb { background: #33364a; border-radius: 4px; }
+.hscroll::-webkit-scrollbar-track { background: transparent; }
 
-/* 다음 후보 — 수집함이 과거 기록으로 끝나지 않게 하는 장치 */
+/* 트로피 카드 — 아트 + 등급 배지 + 희귀도 */
+.trophy-card {
+  position: relative; display: block; width: 210px; text-decoration: none; color: inherit;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden;
+  transition: transform .09s, border-color .12s;
+}
+.trophy-card:hover { transform: translateY(-2px); }
+.trophy-card.t-legendary { border-color: #55401c; }
+.trophy-card.t-rare { border-color: #453a63; }
+.tc-art { display: block; height: 98px; overflow: hidden; }
+.tc-art img, .tc-art .cover-fallback { width: 100%; height: 98px; object-fit: cover; display: block; }
+.tc-badge { position: absolute; top: 8px; left: 8px; }
+.tc-badge .tier-badge { backdrop-filter: blur(6px); background-color: #0d0e13cc; }
+.tc-body { display: block; padding: 10px 12px 12px; }
+.tc-pct { display: block; font-size: 18px; font-weight: 800; line-height: 1.1; }
+.trophy-card.t-legendary .tc-pct { color: var(--t-legendary); }
+.trophy-card.t-rare .tc-pct { color: var(--t-rare); }
+.trophy-card.t-normal .tc-pct { color: var(--t-normal); }
+.trophy-card.t-common .tc-pct { color: var(--t-common); }
+.tc-name { display: block; margin-top: 2px; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tc-game { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 게임별 수집 카드 */
+.gcol-card {
+  display: block; width: 230px; text-decoration: none; color: inherit;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden;
+  transition: transform .09s, border-color .12s;
+}
+.gcol-card:hover { transform: translateY(-2px); border-color: #3a3d4d; }
+.gc-art { display: block; height: 107px; overflow: hidden; }
+.gc-art img, .gc-art .cover-fallback { width: 100%; height: 107px; object-fit: cover; display: block; }
+.gc-body { display: block; padding: 10px 12px 12px; }
+.gc-name { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-pills { display: flex; gap: 5px; margin: 7px 0 6px; flex-wrap: wrap; }
+.cnt-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  border: 1px solid currentColor;
+}
+.cnt-pill.t-legendary { color: var(--t-legendary); background: #ffb5451f; }
+.cnt-pill.t-rare { color: var(--t-rare); background: #b490ff1f; }
+.cnt-pill.t-common { color: var(--t-common); background: #8a8f9e18; }
+.gc-prog { display: block; font-size: 11px; color: var(--muted); }
+
+/* 다음 후보 */
 .target-list { display: flex; flex-direction: column; gap: 8px; }
 .target {
-  display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  display: flex; align-items: center; gap: 14px; padding: 10px 14px;
   border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
 }
-.tg-pct { font-size: 19px; font-weight: 800; flex: none; width: 54px; }
+.tg-art, .target .cover-fallback { width: 92px; height: 43px; flex: none; object-fit: cover; border-radius: 6px; }
+.tg-pct { font-size: 19px; font-weight: 800; flex: none; width: 52px; }
 .tg-pct.t-legendary { color: var(--t-legendary); }
 .tg-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .tg-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

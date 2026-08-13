@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { buildCollection, tierOf, nextTargets } = require('../src/collection');
+const { buildCollection, tierOf, nextTargets, byGame } = require('../src/collection');
 
 const DAY = 86400;
 const NOW = 1786000000;
@@ -142,6 +142,42 @@ test('수확이 없으면 rarest 는 null', () => {
   const c = buildCollection(cache, { now: NOW, harvestDays: 30 });
   assert.equal(c.harvest.count, 0);
   assert.equal(c.harvest.rarest, null);
+});
+
+test('게임별 현황은 전설 많은 순 — 그 게임이 내 수집의 본진이다', () => {
+  const games = [
+    mkGame('1', '흔한 것만', [[70, true], [80, true], [90, true]]),
+    mkGame('2', '전설 둘', [[2, true], [3, true], [60, true]]),
+    mkGame('3', '전설 하나 희귀 둘', [[4, true], [10, true], [15, true]]),
+  ];
+  const shelf = byGame(games);
+  assert.deepEqual(shelf.map((g) => g.name), ['전설 둘', '전설 하나 희귀 둘', '흔한 것만']);
+  assert.deepEqual(shelf[0].counts, { legendary: 2, rare: 0, normal: 0, common: 1, total: 3 });
+});
+
+test('아무것도 못 깬 게임은 게임별 현황에서 빠진다', () => {
+  const games = [
+    mkGame('1', '깬 거 있음', [[10, true], [20, false]]),
+    mkGame('2', '하나도 못 깸', [[10, false], [20, false]]),
+  ];
+  assert.deepEqual(byGame(games).map((g) => g.name), ['깬 거 있음']);
+});
+
+test('게임별 현황도 globalPercent 없는 건 안 센다', () => {
+  const games = [
+    {
+      appid: '1', name: 'A', playtimeMinutes: 10,
+      ach: {
+        hasAchievements: true, total: 2, unlocked: 2, completionPct: 100,
+        achievements: [
+          { apiname: 'x', name: 'x', achieved: true, unlockTime: 1, globalPercent: null },
+          { apiname: 'y', name: 'y', achieved: true, unlockTime: 1, globalPercent: 3 },
+        ],
+      },
+    },
+  ];
+  assert.equal(byGame(games)[0].counts.total, 1);
+  assert.equal(byGame(games)[0].counts.legendary, 1);
 });
 
 test('진열 개수 제한이 지켜진다', () => {
