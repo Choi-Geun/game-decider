@@ -4,177 +4,106 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>지금 뭐 켜지</title>
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; padding: 24px; max-width: 520px; margin-inline: auto;
-      font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
-      background: #14151a; color: #eaeaf0;
-    }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    .sub { color: #8a8a99; font-size: 13px; margin-bottom: 20px; }
-    .field { margin-bottom: 16px; }
-    .label { font-size: 13px; color: #b8b8c4; margin-bottom: 8px; }
-    .opts { display: flex; gap: 8px; flex-wrap: wrap; }
-    .opt {
-      padding: 8px 12px; border-radius: 10px; cursor: pointer;
-      background: #22232b; border: 1px solid #2f3038; font-size: 13px; user-select: none;
-    }
-    .opt.active { background: #5b6cff; border-color: #5b6cff; color: #fff; }
-    .roll-btn {
-      width: 100%; margin-top: 8px; padding: 14px; border: none; border-radius: 12px;
-      background: #5b6cff; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
-    }
-    .result {
-      margin-top: 20px; padding: 18px; border-radius: 14px;
-      background: #1c1d24; border: 1px solid #2f3038; display: none;
-    }
-    .result.show { display: block; }
-    .pick-name { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
-    .pick-reason { color: #c4c4d0; font-size: 14px; line-height: 1.6; }
-    .badge { font-size: 11px; color: #8a8a99; margin-bottom: 6px; }
-    .actions { display: flex; gap: 8px; margin-top: 16px; }
-    .actions a, .actions button {
-      flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #2f3038;
-      background: #22232b; color: #eaeaf0; font-size: 14px; cursor: pointer;
-      text-align: center; text-decoration: none;
-    }
-    .actions .play { background: #2ea043; border-color: #2ea043; color: #fff; font-weight: 700; }
-    label.check { font-size: 13px; color: #b8b8c4; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-    /* Steam */
-    .steam-bar { margin-bottom: 22px; }
-    .steam-login {
-      display: inline-block; width: 100%; padding: 12px; border: none; border-radius: 10px;
-      background: #1b2838; color: #66c0f4; font-size: 14px; font-weight: 700; cursor: pointer;
-      text-align: center; text-decoration: none;
-    }
-    .profile { display: flex; align-items: center; gap: 10px; }
-    .avatar { width: 40px; height: 40px; border-radius: 8px; background: #22232b; }
-    .pname { font-weight: 700; font-size: 14px; }
-    .synced { font-size: 11px; color: #8a8a99; }
-    .sync-btn { margin-left: auto; padding: 8px 12px; border-radius: 8px; border: 1px solid #2f3038; background: #22232b; color: #eaeaf0; cursor: pointer; font-size: 13px; }
-    .sync-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-    .sync-btn.is-syncing { color: #66c0f4; border-color: #2a4a63; }
-    .logout { padding: 8px 10px; border-radius: 8px; border: 1px solid #2f3038; background: transparent; color: #8a8a99; cursor: pointer; font-size: 12px; }
-    .progress { margin-top: 8px; font-size: 12px; color: #8a8a99; }
-    .divider { margin: 22px 0 12px; font-size: 14px; font-weight: 700; color: #d0d0dc; }
-    .ach-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .ach-item { background: #14151a; border: 1px solid #2f3038; border-radius: 8px; padding: 10px; }
-    .ach-item .an { font-size: 13px; font-weight: 600; }
-    .ach-item .ad { font-size: 12px; color: #9a9aa8; margin-top: 2px; }
-    .ach-item .ap { font-size: 11px; color: #66c0f4; margin-top: 4px; }
-    .ach-warn { background: #2a1e14; border: 1px solid #6b4a1e; color: #f0c98a; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
-    .ach-warn-link { display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px; background: #66c0f4; color: #0b1622; font-weight: 700; text-decoration: none; font-size: 13px; }
-    /* 친구 코옵 */
-    .friend-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-    .friend-game { background: #1c1d24; border: 1px solid #2f3038; border-radius: 12px; padding: 14px; }
-    .friend-game .fg-top { display: flex; align-items: center; gap: 8px; }
-    .friend-game .fg-name { font-size: 16px; font-weight: 700; }
-    .friend-game .fg-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; background: #2a4a63; color: #9fd3f0; }
-    .friend-game .fg-play { margin-left: auto; padding: 8px 12px; border-radius: 8px; background: #2ea043; color: #fff; font-weight: 700; text-decoration: none; font-size: 13px; }
-    .owners { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .owner { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #c4c4d0; background: #14151a; border: 1px solid #2f3038; border-radius: 20px; padding: 3px 8px 3px 3px; }
-    .owner img { width: 22px; height: 22px; border-radius: 50%; }
-    .owner.on { border-color: #2ea043; }
-    .owner .dot { width: 7px; height: 7px; border-radius: 50%; background: #555; }
-    .owner.on .dot { background: #2ea043; }
-    .owner .playing { color: #66c0f4; }
-    .hidden { display: none !important; }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <h1>🎮 지금 뭐 켜지</h1>
-  <div class="sub">기분·시간·인원만 고르면, 딱 하나 골라줄게.</div>
-
-  <!-- Steam 연동 -->
-  <div class="steam-bar">
-    <button class="steam-login" id="login">🔑 Steam으로 로그인</button>
-    <div class="profile hidden" id="profile">
-      <img id="avatar" class="avatar" />
-      <div>
-        <div id="pname" class="pname"></div>
-        <div id="synced" class="synced"></div>
+  <!-- 로그인 화면 -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-box">
+      <div class="login-logo">🎮</div>
+      <h1 data-i18n="appTitle">지금 뭐 켜지</h1>
+      <p class="login-desc" data-i18n="loginDesc">Steam 라이브러리에서 오늘 켤 게임을 골라줄게요.</p>
+      <button class="steam-login" id="login">🔑 <span data-i18n="loginBtn">Steam으로 로그인</span></button>
+      <div class="lang-switch" id="langSwitchLogin">
+        <button data-lang="ko">한국어</button><button data-lang="en">English</button>
       </div>
-      <button id="sync" class="sync-btn">🔄 동기화</button>
-      <button id="logout" class="logout">로그아웃</button>
     </div>
-    <div class="progress hidden" id="progress"></div>
   </div>
 
-  <!-- 기분 기반 추천 -->
-  <div id="moodArea" class="hidden">
-    <div class="field">
-      <div class="label">지금 기분</div>
-      <div class="opts" data-group="mood">
-        <div class="opt active" data-value="relaxed">느긋</div>
-        <div class="opt" data-value="intense">빡센</div>
-        <div class="opt" data-value="immersive">몰입</div>
-        <div class="opt" data-value="light">가벼움</div>
-      </div>
-    </div>
-    <div class="field">
-      <div class="label">가용 시간</div>
-      <div class="opts" data-group="time">
-        <div class="opt" data-value="short">30분</div>
-        <div class="opt active" data-value="medium">1~2시간</div>
-        <div class="opt" data-value="long">오래</div>
-      </div>
-    </div>
-    <div class="field">
-      <div class="label">인원</div>
-      <div class="opts" data-group="players">
-        <div class="opt active" data-value="solo">혼자</div>
-        <div class="opt" data-value="coop">친구랑</div>
-      </div>
-    </div>
-    <div class="field">
-      <label class="check"><input type="checkbox" id="backlog" /> 백로그 모드 (안 깬 게임 우선)</label>
-    </div>
-    <button class="roll-btn" id="roll">🎲 골라줘</button>
-    <div class="result" id="result">
-      <div class="badge" id="badge"></div>
-      <div class="pick-name" id="pickName"></div>
-      <div class="pick-reason" id="pickReason"></div>
-      <div class="actions">
-        <button id="again">🎲 다시 굴리기</button>
-        <a class="play" id="play" href="#">▶ 실행</a>
-      </div>
-    </div>
+  <!-- 앱 셸 -->
+  <div id="app" class="app hidden">
+    <!-- LNB -->
+    <aside class="lnb">
+      <div class="brand">🎮 <span>GameDecider</span></div>
 
-    <!-- 도전과제 추천 -->
-    <div class="divider">🏆 도전과제 추천</div>
-    <div id="achWarn" class="ach-warn hidden">
-      ⚠️ 도전과제가 <b>비공개</b>라 못 가져왔어요.
-      아래 버튼에서 <b>"게임 세부 정보"를 공개</b>로 바꾸고, 몇 분 뒤 🔄 다시 동기화하세요.
-      <a class="ach-warn-link" href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener">
-        🔧 Steam 개인정보 설정 열기
-      </a>
-    </div>
-    <div class="opts" data-group="plusmode">
-      <div class="opt active" data-value="continue">이어하기</div>
-      <div class="opt" data-value="finish">마무리각</div>
-      <div class="opt" data-value="easy">쉬운거</div>
-      <div class="opt" data-value="rare">희귀사냥</div>
-    </div>
-    <div class="result" id="achResult">
-      <div class="pick-name" id="achName"></div>
-      <div class="pick-reason" id="achReason"></div>
-      <div class="ach-list" id="achList"></div>
-      <div class="actions">
-        <a class="play" id="achPlay" href="#">▶ 실행</a>
+      <div class="profile" id="profile">
+        <img id="avatar" class="avatar" />
+        <div class="profile-info">
+          <div id="pname" class="pname"></div>
+          <div id="synced" class="synced"></div>
+        </div>
       </div>
-    </div>
+      <button id="sync" class="sync-btn" data-i18n="sync">🔄 동기화</button>
+      <div class="progress hidden" id="progress"></div>
 
-    <!-- 친구랑 할 게임 (코옵) -->
-    <div class="divider">👥 친구랑 할 게임</div>
-    <button class="roll-btn" id="friendBtn" style="background:#2a4a63;">👥 친구랑 할 코옵 게임 찾기</button>
-    <div class="progress hidden" id="friendProgress"></div>
-    <div id="friendList" class="friend-list"></div>
+      <nav class="lnb-nav">
+        <button class="nav-item active" data-view="spin">🎰 <span data-i18n="navSpin">랜덤 스핀</span></button>
+        <button class="nav-item" data-view="games">🎮 <span data-i18n="navGames">내 게임</span></button>
+        <button class="nav-item" data-view="ach">🏆 <span data-i18n="navAch">도전과제</span></button>
+        <button class="nav-item" data-view="friends">👥 <span data-i18n="navFriends">친구랑</span></button>
+      </nav>
+
+      <div class="lnb-bottom">
+        <div class="lang-switch" id="langSwitch">
+          <button data-lang="ko">한국어</button><button data-lang="en">English</button>
+        </div>
+        <button id="logout" class="logout" data-i18n="logout">로그아웃</button>
+      </div>
+    </aside>
+
+    <!-- 메인 -->
+    <main class="main">
+      <!-- 뷰: 랜덤 스핀 -->
+      <section id="view-spin" class="view">
+        <h2 data-i18n="spinTitle">오늘 뭐 켜지?</h2>
+        <p class="view-sub" data-i18n="spinSub">버튼을 눌러 라이브러리를 돌려보세요.</p>
+        <div class="reel-viewport">
+          <div class="reel-track" id="reelTrack"></div>
+          <div class="reel-frame"></div>
+          <div class="reel-fade left"></div>
+          <div class="reel-fade right"></div>
+        </div>
+        <button class="reroll" id="reroll">🎲 <span data-i18n="reroll">돌려!</span></button>
+        <div class="pick" id="pick">
+          <div class="pick-name" id="pickName"></div>
+          <div class="pick-reason" id="pickReason"></div>
+          <a class="pick-play" id="pickPlay" href="#">▶ <span data-i18n="play">실행</span></a>
+        </div>
+      </section>
+
+      <!-- 뷰: 내 게임 -->
+      <section id="view-games" class="view hidden">
+        <h2 data-i18n="navGames">내 게임</h2>
+        <input type="text" id="gameSearch" class="search" data-i18n-ph="searchGames" placeholder="게임 검색…" />
+        <div id="gameGrid" class="game-grid"></div>
+      </section>
+
+      <!-- 뷰: 도전과제 -->
+      <section id="view-ach" class="view hidden">
+        <h2 data-i18n="navAch">도전과제</h2>
+        <div class="subtabs" id="achSubtabs">
+          <button class="subtab active" data-group="status" data-i18n="tabStatus">상태별</button>
+          <button class="subtab" data-group="rarity" data-i18n="tabRarity">희귀도별</button>
+          <button class="subtab" data-group="game" data-i18n="tabGame">게임별</button>
+        </div>
+        <div id="achWarn" class="ach-warn hidden">
+          ⚠️ <span data-i18n="achBlocked">도전과제가 비공개예요. Steam → 프로필 편집 → 개인정보에서 "게임 세부 정보"를 공개로 바꾸고 다시 동기화하세요.</span>
+          <a class="ach-warn-link" href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener" data-i18n="openSteamSettings">🔧 Steam 개인정보 설정 열기</a>
+        </div>
+        <div id="achContent" class="ach-content"></div>
+      </section>
+
+      <!-- 뷰: 친구랑 -->
+      <section id="view-friends" class="view hidden">
+        <h2 data-i18n="navFriends">친구랑 할 게임</h2>
+        <button class="reroll alt" id="friendBtn">👥 <span data-i18n="findCoop">친구랑 할 코옵 게임 찾기</span></button>
+        <div class="progress hidden" id="friendProgress"></div>
+        <div id="friendList" class="friend-list"></div>
+      </section>
+    </main>
   </div>
 
-  <div class="sub" id="loginHint">로그인하면 내 게임으로 추천받을 수 있어요.</div>
-
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

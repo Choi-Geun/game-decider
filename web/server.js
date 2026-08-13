@@ -227,6 +227,17 @@ app.get('/api/recommend-plus', requireAuth, (req, res) => {
   res.json(recommendPlus(cache, req.query.mode || 'continue'));
 });
 
+// 내 게임 전체 (이미지·도전과제 포함) — 새 UI가 슬롯/LNB/도전과제탭에 사용
+app.get('/api/games', requireAuth, (req, res) => {
+  const cache = cacheStore.loadCache(CACHE_DIR, req.session.steamId);
+  if (!cache) return res.json({ games: [], achievementsBlocked: false });
+  res.json({
+    games: cache.games || [],
+    achievementsBlocked: !!cache.achievementsBlocked,
+    updatedAt: cache.updatedAt || null,
+  });
+});
+
 // 친구 기반 코옵 추천 (온디맨드 — 친구 접속상태가 실시간이라 캐시 안 함)
 const friendResultCache = new Map(); // steamId -> { at, data } (60초 캐시)
 app.get('/api/friends', requireAuth, async (req, res) => {
