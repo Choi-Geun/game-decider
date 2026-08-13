@@ -419,11 +419,13 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .daily-head h2 { margin: 0; }
 .daily-stats { margin-left: auto; font-size: 13px; color: var(--muted); }
 
-.draw-deck { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
-.draw-deck.single { grid-template-columns: minmax(0, 480px); justify-content: center; }
+/* 덱은 남는 높이 안에서 가운데. 다만 상한을 둔다 — 창이 아주 길면 카드가
+   화면 한복판에 외따로 떠서 오히려 허전해진다. */
+.draw-deck { display: flex; gap: 22px; align-items: center; justify-content: center; flex: 1 1 auto; min-height: 0; max-height: 560px; }
+.draw-deck.single .draw-card { width: 460px; height: auto; }
 
 .draw-card {
-  position: relative; display: flex; flex-direction: column;
+  position: relative; display: flex; flex-direction: column; width: 330px; height: 430px; flex: none;
   background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
   /* 뒤집히며 등장 — 뽑는 맛 */
   animation: card-flip .5s cubic-bezier(.2, .8, .3, 1) backwards;
@@ -436,9 +438,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 }
 .draw-card.is-picked { border-color: #3f6f4e; box-shadow: 0 0 40px rgba(46, 125, 70, .16); }
 
-.dc-art { display: block; height: 118px; overflow: hidden; }
-.dc-art img, .dc-art .cover-fallback { width: 100%; height: 118px; object-fit: cover; display: block; }
-.draw-deck.single .dc-art, .draw-deck.single .dc-art img, .draw-deck.single .dc-art .cover-fallback { height: 168px; }
+.dc-art { display: block; height: 200px; overflow: hidden; flex: none; }
+.dc-art img, .dc-art .cover-fallback { width: 100%; height: 200px; object-fit: cover; display: block; }
+.draw-deck.single .dc-art, .draw-deck.single .dc-art img, .draw-deck.single .dc-art .cover-fallback { height: 220px; }
 
 .dc-slot {
   position: absolute; top: 10px; left: 10px; padding: 4px 11px; border-radius: 999px;
@@ -455,12 +457,12 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .dc-why { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
 
 .dc-pick {
-  margin: 12px 16px 16px; padding: 11px 0; border: none; border-radius: 11px; cursor: pointer;
+  margin: auto 16px 16px; padding: 11px 0; border: none; border-radius: 11px; cursor: pointer;
   background: linear-gradient(90deg, #5b6cff, #7c5bff); color: #fff; font-size: 14px; font-weight: 800;
 }
 .dc-pick:hover { filter: brightness(1.08); }
 
-.dc-actions { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 16px 18px; }
+.dc-actions { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 16px 18px; margin-top: auto; }
 .dc-play {
   display: block; width: 100%; padding: 13px 0; border-radius: 11px; text-align: center;
   background: #2e7d46; color: #fff; font-size: 15px; font-weight: 800; text-decoration: none;
@@ -493,9 +495,14 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .db-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 @media (max-width: 900px) {
-  .draw-deck { grid-template-columns: 1fr; }
+  .draw-deck { flex-direction: column; }
 }
 
 /* 게임별 탭 — 가로 스크롤이 아니라 격자로 훑는다 */
 .gcol-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .gcol-grid .gcol-card { width: auto; }
+
+/* 오늘의 도전은 화면 높이를 다 쓴다 — 덱이 남는 공간 한가운데 놓이도록 */
+#view-daily { display: flex; flex-direction: column; min-height: calc(100vh - 56px); }
+#dailyContent { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+@media (max-width: 900px) { #view-daily { height: auto; } .draw-card { width: 100%; height: auto; } }
