@@ -160,15 +160,40 @@ async function getAppCategories(appid) {
   }
 }
 
-// SteamSpy 유저 태그. 로그라이크·생존·오픈월드 같은 성격은 Steam 장르에 없고
-// 태그에만 있다. 다만 신뢰도가 들쭉날쭉해서(It Takes Two 가 "Dating Sim" 으로 나온다)
-// 장르로 판별되는 건 장르를 우선한다 — genreBuckets.js 참고.
+// Steam 유저 태그. 로그라이크·오픈월드·생존 같은 성격은 장르에 없고 태그에만 있다.
+// (Risk of Rain 2 의 장르는 "Action, Indie" 가 전부다)
+//
+// 1차: SteamSpy — 득표순으로 정렬돼 나와서 "얼마나 대표적인 태그인지"를 알 수 있다.
+// 2차: 스토어 페이지 — SteamSpy 는 신작을 아직 색인하지 않는 경우가 있다
+//      (Slay the Spire 2 · Once Human 등이 빈 배열로 왔다).
+//      HTML 파싱이라 Steam 이 마크업을 바꾸면 깨질 수 있다. 실패하면 빈 배열을
+//      돌려주고 호출부가 장르로 폴백한다.
 async function getSteamSpyTags(appid) {
   try {
     const r = await fetch(`https://steamspy.com/api.php?request=appdetails&appid=${appid}`);
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.tags && !Array.isArray(j.tags)) {
+        const tags = Object.keys(j.tags);
+        if (tags.length) return tags.slice(0, 14);
+      }
+    }
+  } catch (_e) {}
+  return getStoreTags(appid);
+}
+
+// 스토어 페이지에서 직접 긁는다. 연령 확인 페이지를 건너뛰려고 birthtime 쿠키를 넣는다.
+async function getStoreTags(appid) {
+  try {
+    const r = await fetch(`https://store.steampowered.com/app/${appid}/?l=english`, {
+      headers: { 'Accept-Language': 'en', Cookie: 'birthtime=0; wants_mature_content=1' },
+    });
     if (!r.ok) return [];
-    const j = await r.json();
-    return j && j.tags && !Array.isArray(j.tags) ? Object.keys(j.tags).slice(0, 12) : [];
+    const html = await r.text();
+    const tags = [...html.matchAll(/<a[^>]*class="[^"]*app_tag[^"]*"[^>]*>\s*([^<]+?)\s*<\/a>/g)]
+      .map((m) => m[1].trim())
+      .filter(Boolean);
+    return tags.slice(0, 14);
   } catch (_e) {
     return [];
   }
@@ -219,6 +244,7 @@ module.exports = {
   getFriendList,
   getAppCategories,
   getSteamSpyTags,
+  getStoreTags,
   getAppDetails,
   getNewsForApp,
   getAppReviews,
