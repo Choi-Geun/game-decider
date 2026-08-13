@@ -224,3 +224,58 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .game-acc summary .cover-fallback .covf-title { display: none; }
 .chip .cover-fallback .covf-glyph { font-size: 11px; }
 .dlc-item .cover-fallback .covf-glyph, .game-acc summary .cover-fallback .covf-glyph { font-size: 15px; }
+
+/* ── 이어하기 ──────────────────────────────────────────────────────
+   재진입 비용을 없애는 게 목적. 진행률보다 "마지막으로 깬 것"이 주인공이다. */
+.view-lead { margin: -6px 0 18px; color: var(--muted); font-size: 14px; }
+
+.resume-group { margin-bottom: 30px; }
+.rg-title { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.rg-count { margin-left: 10px; font-weight: 400; font-size: 13px; opacity: .75; }
+
+.resume-list { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); }
+
+.resume-card {
+  display: grid; grid-template-columns: 184px 1fr; gap: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  overflow: hidden; cursor: pointer; transition: border-color .12s, transform .08s;
+}
+.resume-card:hover { border-color: #3a3d4d; transform: translateY(-1px); }
+.resume-card .rc-cover { width: 184px; height: 100%; min-height: 150px; object-fit: cover; display: block; }
+
+.rc-body { padding: 14px 16px; min-width: 0; }
+.rc-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.rc-name { margin: 0; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-when { margin-left: auto; flex: none; font-size: 12px; color: var(--muted); }
+
+/* 진행률 바. 달성 시점 눈금은 축이 달라서(진행률 vs 시간) 따로 그린다 —
+   겹치면 33%짜리 게임의 눈금이 100% 폭에 퍼져 보여 거짓말이 된다. */
+.rc-bar { height: 8px; border-radius: 4px; background: var(--panel2); overflow: hidden; }
+.rc-fill { height: 100%; background: linear-gradient(90deg, #5b6cff, #7c5bff); }
+.rc-timeline { position: relative; height: 9px; margin-top: 4px; opacity: .65; }
+.rc-timeline::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 1px; background: var(--line); }
+.rc-timeline i { position: absolute; top: 1px; width: 2px; height: 7px; background: #7c8399; border-radius: 1px; }
+.rc-prog { margin: 6px 0 10px; font-size: 12px; color: var(--muted); }
+
+.rc-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; padding: 3px 0; min-width: 0; }
+.rc-label { flex: none; width: 84px; color: var(--muted); font-size: 12px; }
+.rc-ach { font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-date { margin-left: auto; flex: none; font-size: 12px; color: var(--muted); }
+/* 다음 지점은 이름 + 설명 2줄. 한 줄에 밀어넣으면 이름이 "A..." 로 잘린다. */
+.rc-nextbody { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rc-nextbody .rc-ach { color: #9db4ff; }
+.rc-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.rc-notes { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+.rc-play {
+  display: inline-block; margin-top: 12px; padding: 8px 20px; border-radius: 10px;
+  background: #2e7d46; color: #fff; font-size: 13px; font-weight: 700; text-decoration: none;
+}
+.rc-play:hover { background: #349152; }
+
+@media (max-width: 980px) {
+  .resume-list { grid-template-columns: 1fr; }
+  .resume-card { grid-template-columns: 130px 1fr; }
+  .resume-card .rc-cover { width: 130px; }
+}

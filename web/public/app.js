@@ -123,6 +123,7 @@ async function loadGames() {
     const d = await fetch('/api/games').then((r) => r.json());
     state.games = d.games || [];
     state.achievementsBlocked = !!d.achievementsBlocked;
+    resumeData = null; // 동기화로 진행도가 바뀌었을 수 있으니 다시 계산시킨다
   } catch (e) {}
   renderView();
   // 최초 1회만 자동 스핀 (동기화 후 재호출돼도 다시 안 돎)
@@ -178,7 +179,7 @@ $('sync').addEventListener('click', () => startSync(false));
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
 //   #spin | #games | #games/{appid} | #ach | #friends
-const VIEWS = ['spin', 'games', 'ach', 'friends'];
+const VIEWS = ['spin', 'resume', 'games', 'ach', 'friends'];
 
 function parseHash() {
   const raw = (location.hash || '').replace(/^#\/?/, '');
@@ -223,7 +224,8 @@ document.querySelectorAll('.nav-item').forEach((b) =>
 window.addEventListener('hashchange', applyRoute);
 
 function renderView() {
-  if (state.view === 'games') renderGames();
+  if (state.view === 'resume') renderResume();
+  else if (state.view === 'games') renderGames();
   else if (state.view === 'ach') renderAch();
   else if (state.view === 'friends') renderFriendsIfLoaded();
 }
@@ -385,6 +387,107 @@ function renderGames() {
 $('gameSearch').addEventListener('input', renderGames);
 $('gameGrid').addEventListener('click', (e) => {
   const card = e.target.closest('.game-card');
+  if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);
+});
+
+// ── 이어하기 ──────────────────────────────────────────────────────
+// 돌아오는 걸 막는 건 의욕이 아니라 "내가 어디까지 했더라"다.
+// 마지막으로 깬 것 + 다음 지점을 보여주면 재진입 비용이 사라진다.
+let resumeData = null, resumeLoading = false;
+
+// "3개월 방치"가 아니라 "3개월 전" — 사실은 같지만 죄책감 주는 도구는 안 열게 된다.
+function agoText(days) {
+  if (days == null) return '';
+  if (days < 45) return t('agoDays', { n: days });
+  if (days < 365) return t('agoMonths', { n: Math.round(days / 30) });
+  return t('agoYears', { n: Math.floor(days / 365) });
+}
+
+async function loadResume() {
+  if (resumeLoading) return;
+  resumeLoading = true;
+  try { resumeData = await fetch('/api/resume').then((r) => r.json()); }
+  catch (e) { resumeData = { active: [], dropped: [], droppedTotal: 0 }; }
+  resumeLoading = false;
+  if (state.view === 'resume') renderResume();
+}
+
+// 달성 시각 눈금. 진행 바와 축이 다르므로(하나는 진행률, 하나는 시간)
+// 절대 겹쳐 그리지 않는다 — 33%짜리 게임의 눈금이 100% 폭에 퍼져 보이면 거짓말이 된다.
+function timelineHtml(points) {
+  if (!points || points.length < 2) return '';
+  const ticks = points.map((p) => `<i style="left:${(p * 100).toFixed(1)}%"></i>`).join('');
+  return `<div class="rc-timeline" aria-hidden="true">${ticks}</div>`;
+}
+
+function resumeCardHtml(c, isActive) {
+  const when = isActive && c.recentMinutes
+    ? t('resumeRecent', { h: Math.max(1, Math.round(c.recentMinutes / 60)) })
+    : t('resumeStopped', { when: agoText(c.dormantDays) });
+
+  const cover = `<img class="rc-cover" src="${imgHeader(c)}" ${coverAttrs(c)}>`;
+
+  const last = c.lastAchievement
+    ? `<div class="rc-row"><span class="rc-label">${t('resumeLastAch')}</span>
+         <span class="rc-ach">${esc(c.lastAchievement.name)}</span>
+         <span class="rc-date">${fmtDate(c.lastAchievement.unlockTime)}</span></div>`
+    : '';
+
+  const next = c.nextAchievement
+    ? `<div class="rc-row rc-next"><span class="rc-label">${t('resumeNextAch')}</span>
+         <span class="rc-nextbody">
+           <span class="rc-ach">${esc(c.nextAchievement.name)}</span>
+           <span class="rc-sub">${t('resumePlayers', { p: Math.round(c.nextAchievement.globalPercent) })}</span>
+         </span></div>`
+    : '';
+
+  const notes = [];
+  if (c.burstCount >= 3) notes.push(t('resumeReturns', { n: c.burstCount }));
+  if (c.unlockPaceMinutes != null) notes.push(t('resumePace', { m: c.unlockPaceMinutes }));
+
+  return `<article class="resume-card" data-appid="${c.appid}">
+    ${cover}
+    <div class="rc-body">
+      <div class="rc-head">
+        <h3 class="rc-name">${esc(c.name)}</h3>
+        <span class="rc-when">${when}</span>
+      </div>
+      <div class="rc-bar"><div class="rc-fill" style="width:${c.completionPct}%"></div></div>
+      ${timelineHtml(c.timeline)}
+      <div class="rc-prog">${t('resumeProgress', { u: c.unlocked, t: c.total, p: c.completionPct })}</div>
+      ${last}${next}
+      ${notes.length ? `<div class="rc-notes">${notes.map(esc).join(' · ')}</div>` : ''}
+      <a class="rc-play" href="${steamRunUrl(c.appid)}">▶ ${t('resumeBtn')}</a>
+    </div>
+  </article>`;
+}
+
+function renderResume() {
+  const box = $('resumeContent');
+  if (!box) return;
+  if (!resumeData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadResume(); return; }
+
+  const { active = [], dropped = [], droppedTotal = 0 } = resumeData;
+  if (!active.length && !dropped.length) { box.innerHTML = `<div class="empty">${t('resumeEmpty')}</div>`; return; }
+
+  let html = '';
+  if (active.length) {
+    html += `<section class="resume-group"><h3 class="rg-title">${t('resumeActive')}</h3>
+      <div class="resume-list">${active.map((c) => resumeCardHtml(c, true)).join('')}</div></section>`;
+  }
+  if (dropped.length) {
+    const more = droppedTotal > dropped.length
+      ? `<span class="rg-count">${t('resumeMore', { m: dropped.length, n: droppedTotal })}</span>` : '';
+    html += `<section class="resume-group"><h3 class="rg-title">${t('resumeDropped')}${more}</h3>
+      <div class="resume-list">${dropped.map((c) => resumeCardHtml(c, false)).join('')}</div></section>`;
+  }
+  box.innerHTML = html;
+}
+
+// 카드의 커버/제목을 누르면 상세로. 실행 링크는 그대로 통과시킨다.
+$('resumeContent').addEventListener('click', (e) => {
+  if (e.target.closest('.rc-play')) return;
+  const card = e.target.closest('.resume-card');
   if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);
 });
 

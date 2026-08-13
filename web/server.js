@@ -14,6 +14,7 @@ const { recommend } = require('../src/recommend');
 const { recommendPlus } = require('../src/recommendPlus');
 const { buildFriendCoop } = require('../src/friendsCoop');
 const { buildGameDetail } = require('../src/gameDetail');
+const { buildResume } = require('../src/resume');
 const openid = require('./src/steamOpenId');
 
 const env = loadEnv(path.join(__dirname, '..', '.env'));
@@ -249,6 +250,15 @@ app.get('/api/recommend', requireAuth, async (req, res) => {
   // 웹에서는 서버의 Claude 키를 쓰지 않고 로컬 로직 사용(원하면 env로 켤 수 있음)
   const result = await recommend(games, input, env);
   res.json(result);
+});
+
+// 이어하기 — 중도 이탈한 게임 + 지금 하던 것.
+// 도전과제 unlockTime 으로 "어디서 멈췄는지"를 복원한다. 새 API 호출 없이 캐시만 쓴다.
+app.get('/api/resume', requireAuth, (req, res) => {
+  const cache = cacheStore.loadCache(CACHE_DIR, req.session.steamId);
+  if (!cache) return res.json({ active: [], dropped: [], summary: {}, droppedTotal: 0 });
+  const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 50);
+  res.json(buildResume(cache, { limit }));
 });
 
 // 도전과제/이어하기 기반

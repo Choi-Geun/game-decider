@@ -38,6 +38,7 @@
 
       <nav class="lnb-nav">
         <button class="nav-item active" data-view="spin">🎰 <span data-i18n="navSpin">랜덤 스핀</span></button>
+        <button class="nav-item" data-view="resume">↩️ <span data-i18n="navResume">이어하기</span></button>
         <button class="nav-item" data-view="games">🎮 <span data-i18n="navGames">내 게임</span></button>
         <button class="nav-item" data-view="ach">🏆 <span data-i18n="navAch">도전과제</span></button>
         <button class="nav-item" data-view="friends">👥 <span data-i18n="navFriends">친구랑</span></button>
@@ -65,6 +66,13 @@
           <a class="pick-play" id="pickPlay" href="#">▶ <span data-i18n="play">실행</span></a>
         </div>
         <button class="reroll" id="reroll">🎲 <span data-i18n="reroll">돌려!</span></button>
+      </section>
+
+      <!-- 뷰: 이어하기 -->
+      <section id="view-resume" class="view hidden">
+        <h2 data-i18n="resumeTitle">이어하기</h2>
+        <p class="view-lead" data-i18n="resumeLead">멈춘 지점을 그대로 복원해뒀어요.</p>
+        <div id="resumeContent"></div>
       </section>
 
       <!-- 뷰: 내 게임 -->
