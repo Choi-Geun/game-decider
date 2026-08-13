@@ -180,8 +180,9 @@ $('sync').addEventListener('click', () => startSync(false));
 
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
-//   #spin | #games | #games/{appid} | #ach | #friends
+//   #spin | #games | #games/{appid} | #ach | #ach/{subtab} | #friends
 const VIEWS = ['daily', 'spin', 'resume', 'games', 'ach', 'friends'];
+const ACH_TABS = ['collected', 'targets', 'game'];
 
 function parseHash() {
   const raw = (location.hash || '').replace(/^#\/?/, '');
@@ -198,6 +199,11 @@ function applyRoute() {
   document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
   $('view-' + view).classList.remove('hidden');
 
+  // 서브탭도 URL 로. 링크로 공유되고 새로고침해도 유지된다.
+  if (view === 'ach') {
+    state.achGroup = ACH_TABS.includes(param) ? param : 'collected';
+    document.querySelectorAll('.subtab').forEach((x) => x.classList.toggle('active', x.dataset.group === state.achGroup));
+  }
   if (view === 'games') {
     const appid = param ? Number(param) : null;
     if (appid) { if (state.detailAppid !== appid) openDetail(appid); }
@@ -874,12 +880,9 @@ function renderDetail(appid, d) {
 }
 
 // ── 도전과제 ──────────────────────────────────────────────────────
-document.querySelectorAll('.subtab').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.subtab').forEach((x) => x.classList.remove('active'));
-  b.classList.add('active');
-  state.achGroup = b.dataset.group;
-  renderAch();
-}));
+document.querySelectorAll('.subtab').forEach((b) =>
+  b.addEventListener('click', () => navigate('ach/' + b.dataset.group))
+);
 
 function withAchGames() {
   return state.games.filter((g) => g.ach && g.ach.hasAchievements && g.ach.total > 0);
