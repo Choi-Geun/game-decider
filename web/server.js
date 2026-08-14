@@ -19,6 +19,8 @@ const { buildCollection } = require('../src/collection');
 const draw = require('../src/draw');
 const store = require('../src/store');
 const openid = require('./src/steamOpenId');
+const remoteStore = require('./src/remoteStore');
+const { createPersistence } = require('./src/persist');
 
 const env = loadEnv(path.join(__dirname, '..', '.env'));
 
@@ -49,6 +51,23 @@ if (IS_DEPLOYED && AUTH_SECRET === 'dev-secret-change-me') {
 }
 const AUTH_COOKIE = 'gd_auth';
 const AUTH_MAX_AGE = 1000 * 60 * 60 * 24 * 30; // 30일
+
+// 원격 영속 저장소. 미설정이면 전부 no-op → 로컬은 지금과 똑같이 동작한다.
+// Render 무료 플랜의 디스크는 휘발성이라, 이게 없으면 재배포마다 뽑기 기록이 사라진다.
+const persist = createPersistence({
+  remote: remoteStore.makeClient(env),
+  cacheDir: CACHE_DIR,
+  stateDir: STATE_DIR,
+  log: (m) => console.log(`[persist] ${m}`),
+});
+
+// 뽑기 상태는 로컬에 먼저 쓰고(동기·원자적) 원격 백업은 뒤에서 보낸다.
+// 백업이 느리거나 실패해도 유저 응답을 붙잡아두지 않는다 — 로컬이 이미 정답이다.
+function saveAndBackup(steamId, state) {
+  const ok = store.saveState(STATE_DIR, steamId, state);
+  persist.pushState(steamId).catch(() => {});
+  return ok;
+}
 // HTTPS 로 서비스될 때만 secure. 로컬 http 에서 켜면 쿠키가 아예 안 붙는다.
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -120,6 +139,11 @@ app.use(async (req, res, next) => {
         } catch (_e) {}
       }
     }
+  }
+  // 이 컨테이너에서 이 유저를 처음 보면 원격 백업을 로컬로 내려받는다.
+  // 두 번째부터는 Set 조회라 비용이 없다. 실패해도 요청은 그대로 진행된다.
+  if (req.session.steamId) {
+    try { await persist.hydrate(req.session.steamId); } catch (_e) {}
   }
   next();
 });
@@ -262,6 +286,8 @@ app.post('/api/sync', requireAuth, (req, res) => {
         stats: data._stats,
         count: data.games.length,
       });
+      // 40초 걸려 모은 걸 휘발성 디스크에만 두지 않는다
+      persist.pushCache(steamId).catch(() => {});
     })
     .catch((e) => {
       syncJobs.set(steamId, { done: 0, total: 0, name: '', status: 'error', error: String(e.message || e) });
@@ -333,7 +359,7 @@ app.get('/api/draw', requireAuth, (req, res) => {
 
   const before = store.loadState(STATE_DIR, steamId);
   const { state, justCompleted } = draw.advance(before, cache, { now });
-  store.saveState(STATE_DIR, steamId, state);
+  saveAndBackup(steamId, state);
   res.json(drawPayload(state, justCompleted, now));
 });
 
@@ -345,7 +371,7 @@ app.post('/api/draw/pick', requireAuth, (req, res) => {
   const state = store.loadState(STATE_DIR, steamId);
   const r = draw.pick(state, Number(req.body && req.body.index), now);
   if (!r.ok) return res.status(409).json({ error: r.error });
-  store.saveState(STATE_DIR, steamId, r.state);
+  saveAndBackup(steamId, r.state);
   res.json(drawPayload(r.state, null, now));
 });
 
@@ -356,7 +382,7 @@ app.post('/api/draw/reroll', requireAuth, (req, res) => {
 
   const r = draw.reroll(store.loadState(STATE_DIR, steamId), cache, { now });
   if (!r.ok) return res.status(409).json({ error: r.error });
-  store.saveState(STATE_DIR, steamId, r.state);
+  saveAndBackup(steamId, r.state);
   res.json(drawPayload(r.state, null, now));
 });
 
@@ -367,7 +393,7 @@ app.post('/api/draw/giveup', requireAuth, (req, res) => {
 
   const r = draw.giveUp(store.loadState(STATE_DIR, steamId), cache, { now });
   if (!r.ok) return res.status(409).json({ error: r.error });
-  store.saveState(STATE_DIR, steamId, r.state);
+  saveAndBackup(steamId, r.state);
   res.json(drawPayload(r.state, null, now));
 });
 
