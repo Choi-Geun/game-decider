@@ -54,8 +54,9 @@ const AUTH_MAX_AGE = 1000 * 60 * 60 * 24 * 30; // 30일
 
 // 원격 영속 저장소. 미설정이면 전부 no-op → 로컬은 지금과 똑같이 동작한다.
 // Render 무료 플랜의 디스크는 휘발성이라, 이게 없으면 재배포마다 뽑기 기록이 사라진다.
+const remote = remoteStore.makeClient(env);
 const persist = createPersistence({
-  remote: remoteStore.makeClient(env),
+  remote,
   cacheDir: CACHE_DIR,
   stateDir: STATE_DIR,
   log: (m) => console.log(`[persist] ${m}`),
@@ -481,4 +482,16 @@ app.listen(PORT, '0.0.0.0', () => {
   if (IS_DEPLOYED && !env.BASE_URL && !env.RENDER_EXTERNAL_URL) {
     console.log('⚠️  BASE_URL 을 못 찾았습니다. Steam 로그인 후 localhost 로 되돌아가 실패합니다.');
   }
+
+  // 백업이 실제로 되는지 지금 확인한다. 조용히 실패하면 재배포 때 알게 되고 그땐 늦다.
+  remote.selfCheck().then((r) => {
+    if (r.ok) return console.log(`[persist] ✅ 원격 백업 정상 — ${r.reason}`);
+    if (!remote.isEnabled()) {
+      console.log(`[persist] 원격 백업 꺼짐 — ${r.reason}`);
+      if (IS_DEPLOYED) console.log('[persist] ⚠️  이 상태로는 재배포마다 뽑기 기록이 사라집니다.');
+      return;
+    }
+    console.log(`[persist] ❌ 원격 백업 안 됨 — ${r.reason}`);
+    console.log('[persist] ⚠️  앱은 돌아가지만 백업이 되지 않습니다. 재배포하면 기록이 사라집니다.');
+  });
 });

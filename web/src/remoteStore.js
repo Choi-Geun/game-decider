@@ -95,6 +95,37 @@ function makeClient(env) {
       }
     },
 
+    /**
+     * 기동 시 1회 왕복 자가진단.
+     *
+     * 이게 없으면 버킷 이름이나 키가 틀려도 앱은 멀쩡히 돌아가고, 백업이 안 되고
+     * 있다는 걸 **재배포해서 데이터를 잃고 나서야** 알게 된다. 조용한 실패가
+     * 제일 나쁘다 — 뜰 때 시끄럽게 알린다.
+     */
+    async selfCheck() {
+      if (!enabled) return { ok: false, reason: '미설정 (로컬 파일로만 동작)' };
+      const probe = `${BUCKET}/_probe/health.json.gz`;
+      const payload = zlib.gzipSync(Buffer.from(JSON.stringify({ at: Date.now() })));
+
+      const put = await request('POST', probe, payload, {
+        'content-type': 'application/gzip',
+        'x-upsert': 'true',
+      });
+      if (!put.ok) {
+        const body = put.body ? put.body.toString().slice(0, 200) : '';
+        if (put.status === 0) return { ok: false, reason: 'Supabase 에 연결 못 함 (URL 확인)' };
+        if (put.status === 400 && /bucket/i.test(body))
+          return { ok: false, reason: `'${BUCKET}' 버킷이 없습니다 — Storage 에 Private 으로 만드세요` };
+        if (put.status === 401 || put.status === 403)
+          return { ok: false, reason: '키가 거부됐습니다 (service_role 키인지 확인)' };
+        return { ok: false, reason: `쓰기 실패 HTTP ${put.status} ${body}` };
+      }
+
+      const get = await request('GET', probe);
+      if (!get.ok) return { ok: false, reason: `쓰기는 됐는데 읽기 실패 HTTP ${get.status}` };
+      return { ok: true, reason: `왕복 확인 (버킷 ${BUCKET})` };
+    },
+
     /** gzip 해서 덮어쓴다. 성공 여부만 돌려주고 던지지 않는다. */
     async push(kind, steamId, buffer) {
       if (!enabled) return false;
