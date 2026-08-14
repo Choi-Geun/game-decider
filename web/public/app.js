@@ -1210,7 +1210,24 @@ function withAchGames() {
 function renderAch() {
   $('achWarn').classList.toggle('hidden', !state.achievementsBlocked);
   const box = $('achContent');
-  if (!withAchGames().length) { box.innerHTML = `<div class="empty">${t('noAchGames')}</div>`; return; }
+  // '없다'와 '아직 못 받았다'와 '못 읽는다'는 다른 상태다. 한 문장으로 뭉치면
+  // 데이터가 오는 중인데도 "없어요"라고 단정하는 거짓말이 된다.
+  // (renderGames·renderDaily 는 이미 이 규칙을 지키고 있었는데 여기만 빠져 있었다.
+  //  Render 무료 플랜은 재배포하면 캐시가 날아가서 정확히 이 경로로 들어온다.)
+  if (!gamesLoadedOnce) { box.innerHTML = skelGrid(6, 'gt-grid'); return; }
+  if (!state.games.length) {
+    box.innerHTML = (syncing || syncIsStale())
+      ? syncingPanel()
+      : emptyState(t('needSyncTitle'), t('needSyncDesc'),
+          `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
+    return;
+  }
+  if (!withAchGames().length) {
+    // 비공개는 '없는' 게 아니라 '못 읽는' 것이다. 위 경고 배너가 방법을 알려주므로
+    // 여기서는 그 배너를 가리키기만 한다 — 같은 화면에서 서로 다른 말을 하면 안 된다.
+    box.innerHTML = `<div class="empty">${state.achievementsBlocked ? t('achBlockedEmpty') : t('noAchGames')}</div>`;
+    return;
+  }
   if (state.achGroup === 'collected') renderCollected(box);
   else if (state.achGroup === 'targets') renderTargets(box);
   else renderAchByGame(box);
@@ -1218,6 +1235,14 @@ function renderAch() {
 
 // 등급 타일 = 필터. 같은 걸 다시 누르면 해제되어 전체로 돌아온다.
 $('achContent').addEventListener('click', (e) => {
+  // 동기화 전 빈 화면의 '지금 가져오기'. 버튼만 그려놓고 안 물리면 눌러도
+  // 아무 일이 없어 고장으로 읽힌다.
+  const sync = e.target.closest('[data-act="sync"]');
+  if (sync) {
+    sync.disabled = true;
+    sync.textContent = t('checking');
+    return startSync(false);
+  }
   const btn = e.target.closest('[data-tier]');
   if (!btn) return;
   const next = btn.dataset.tier;
