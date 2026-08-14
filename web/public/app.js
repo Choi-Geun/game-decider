@@ -436,18 +436,23 @@ function resumeCardHtml(c, isActive) {
 
   const cover = `<img class="rc-cover" src="${imgHeader(c)}" ${coverAttrs(c)}>`;
 
+  // 라벨을 값 옆에 두면 값이 쓸 폭이 그만큼 줄어 이름이 거의 다 잘렸다.
+  // 라벨은 위로 올리고 값은 두 줄까지. 그래도 넘치면 title 로 전문을 보여준다.
   const last = c.lastAchievement
-    ? `<div class="rc-row"><span class="rc-label">${t('resumeLastAch')}</span>
-         <span class="rc-ach">${esc(c.lastAchievement.name)}</span>
-         <span class="rc-date">${fmtDate(c.lastAchievement.unlockTime)}</span></div>`
+    ? `<div class="rc-row">
+         <div class="rc-rowhead"><span class="rc-label">${t('resumeLastAch')}</span>
+           <span class="rc-date">${fmtDate(c.lastAchievement.unlockTime)}</span></div>
+         <div class="rc-ach" title="${esc(c.lastAchievement.name)}">${esc(c.lastAchievement.name)}</div>
+       </div>`
     : '';
 
   const next = c.nextAchievement
-    ? `<div class="rc-row rc-next"><span class="rc-label">${t('resumeNextAch')}</span>
-         <span class="rc-nextbody">
-           <span class="rc-ach">${esc(c.nextAchievement.name)}</span>
-           <span class="rc-sub">${t('resumePlayers', { p: Math.round(c.nextAchievement.globalPercent) })}</span>
-         </span></div>`
+    ? `<div class="rc-row rc-next">
+         <div class="rc-rowhead"><span class="rc-label">${t('resumeNextAch')}</span>
+           <span class="rc-date">${t('resumePlayers', { p: Math.round(c.nextAchievement.globalPercent) })}</span></div>
+         <div class="rc-ach" title="${esc(c.nextAchievement.name)}">${esc(c.nextAchievement.name)}</div>
+         ${c.nextAchievement.description ? `<div class="rc-sub" title="${esc(c.nextAchievement.description)}">${esc(c.nextAchievement.description)}</div>` : ''}
+       </div>`
     : '';
 
   const notes = [];
@@ -458,7 +463,7 @@ function resumeCardHtml(c, isActive) {
     ${cover}
     <div class="rc-body">
       <div class="rc-head">
-        <h3 class="rc-name">${esc(c.name)}</h3>
+        <h3 class="rc-name" title="${esc(c.name)}">${esc(c.name)}</h3>
         <span class="rc-when">${when}</span>
       </div>
       <div class="rc-bar"><div class="rc-fill" style="width:${c.completionPct}%"></div></div>
@@ -549,7 +554,7 @@ function drawCardHtml(c, i, picked) {
     <span class="dc-slot">${t(slotKey)}</span>
     <span class="dc-body">
       <span class="dc-tier">${tierBadge(c.tier)}<span class="dc-pct">${c.globalPercent}%</span></span>
-      <span class="dc-ach">${esc(c.achName)}</span>
+      <span class="dc-ach" title="${esc(c.achName)}">${esc(c.achName)}</span>
       ${c.achDesc ? `<span class="dc-desc">${esc(c.achDesc)}</span>` : ''}
       <span class="dc-game">${esc(c.gameName)}</span>
       <span class="dc-why">${esc(cardWhy(c))}</span>
@@ -655,15 +660,10 @@ function tierBadge(tier) {
 
 // 텍스트만 있으면 "뭘 보라는 건데?"가 된다. 트로피에도 게임 아트를 붙인다.
 function trophyCard(a) {
-  const g = { appid: a.appid, name: a.gameName, images: a.images };
   return `<a class="trophy-card t-${a.tier}" href="#games/${a.appid}" title="${esc(a.name)} — ${esc(a.gameName)}">
-    <span class="tc-art"><img src="${imgHeader(g)}" ${coverAttrs(g)}></span>
-    <span class="tc-badge">${tierBadge(a.tier)}</span>
-    <span class="tc-body">
-      <span class="tc-pct">${a.globalPercent}%</span>
-      <span class="tc-name">${esc(a.name)}</span>
-      <span class="tc-game">${esc(a.gameName)}</span>
-    </span>
+    <span class="tc-head">${tierBadge(a.tier)}<span class="tc-pct">${a.globalPercent}%</span></span>
+    <span class="tc-name" title="${esc(a.name)}">${esc(a.name)}</span>
+    <span class="tc-game" title="${esc(a.gameName)}">${esc(a.gameName)}</span>
   </a>`;
 }
 
@@ -676,7 +676,7 @@ function gameCollectionCard(g) {
   return `<a class="gcol-card" href="#games/${g.appid}" title="${esc(g.name)}">
     <span class="gc-art"><img src="${imgHeader(g)}" ${coverAttrs(g)}></span>
     <span class="gc-body">
-      <span class="gc-name">${esc(g.name)}</span>
+      <span class="gc-name" title="${esc(g.name)}">${esc(g.name)}</span>
       <span class="gc-pills">${pills.join('')}</span>
       <span class="gc-prog">${t('achCount', { u: g.unlocked, t: g.total })} · ${g.completionPct}%</span>
     </span>
@@ -720,7 +720,7 @@ function renderCollected(box) {
   const shelf = showcase.length
     ? `<section class="coll-block">
         <h3 class="cb-title">${t('trophyShelf')}<span class="cb-sub">${t('trophyShelfLead')}</span></h3>
-        <div class="hscroll">${showcase.map(trophyCard).join('')}</div>
+        <div class="trophy-grid">${showcase.map(trophyCard).join('')}</div>
       </section>`
     : '';
 
@@ -728,7 +728,7 @@ function renderCollected(box) {
     <h3 class="cb-title">${t('harvestTitle', { d: harvest.days })}
       <span class="cb-sub">${harvest.count ? t('collectionCount', { n: harvest.count }) + (harvest.rarest ? ' · ' + t('harvestRarest', { p: harvest.rarest.globalPercent }) : '') : ''}</span></h3>
     ${harvest.count
-      ? `<div class="hscroll">${harvest.items.map(trophyCard).join('')}</div>`
+      ? `<div class="trophy-grid">${harvest.items.map(trophyCard).join('')}</div>`
       : `<div class="empty">${t('harvestNone')}</div>`}
   </section>`;
 
@@ -751,7 +751,7 @@ function renderTargets(box) {
             <img class="tg-art" src="${imgHeader(g)}" ${coverAttrs(g)}>
             <span class="tg-pct t-legendary">${x.globalPercent}%</span>
             <span class="tg-body">
-              <span class="tg-name">${esc(x.name)}</span>
+              <span class="tg-name" title="${esc(x.name)}">${esc(x.name)}</span>
               <span class="tg-game">${esc(x.gameName)} · ${t('nextTargetPlayed', { h: Math.round(x.playtimeMinutes / 60) })}</span>
             </span>
             <a class="tg-go" href="${steamRunUrl(x.appid)}">▶ ${t('challenge')}</a>
@@ -776,7 +776,7 @@ function renderTargets(box) {
     const more = arr.length > LIMIT ? `<span class="cb-sub">+${arr.length - LIMIT}</span>` : '';
     return `<section class="coll-block">
       <h3 class="cb-title">${tierBadge(tier)}<span class="cb-sub">${t('collectionCount', { n: arr.length })}</span>${more}</h3>
-      <div class="hscroll">${arr.slice(0, LIMIT).map(trophyCard).join('')}</div>
+      <div class="trophy-grid">${arr.slice(0, LIMIT).map(trophyCard).join('')}</div>
     </section>`;
   }).join('');
 
@@ -963,7 +963,7 @@ function renderFriends(res) {
       const playing = o.playingThis ? ` <span class="playing">${t('playingNow')}</span>` : o.inGameName ? ` <span class="playing">(${esc(o.inGameName)})</span>` : '';
       return `<span class="owner ${o.online ? 'on' : ''}"><span class="dot"></span>${av}${esc(o.name)}${playing}</span>`;
     }).join('');
-    return `<div class="friend-game"><img class="fg-img" src="${img}" ${coverAttrs(g)}><div class="fg-body"><div class="fg-top"><span class="fg-name">${esc(g.name)}</span> <span class="fg-tag">${tag}</span><a class="fg-play" href="${steamRunUrl(g.appid)}">▶ ${t('play')}</a></div><div class="owners">${owners}</div></div></div>`;
+    return `<div class="friend-game"><img class="fg-img" src="${img}" ${coverAttrs(g)}><div class="fg-body"><div class="fg-top"><span class="fg-name" title="${esc(g.name)}">${esc(g.name)}</span> <span class="fg-tag">${tag}</span><a class="fg-play" href="${steamRunUrl(g.appid)}">▶ ${t('play')}</a></div><div class="owners">${owners}</div></div></div>`;
   }
 
   // 성격별 그룹. 서버가 못 묶어줬으면(옛 응답) 통짜 목록으로 떨어진다.
