@@ -50,6 +50,14 @@ design/_pen/    Pencil 디자인 원본 → 별도 README 의 규칙을 반드�
   from 상태(opacity 0)에 멈춰 **콘텐츠가 통째로 안 보인다.**
 - 카드 높이는 **폭**에서 나와야 한다. 뷰가 100vh 를 채우고 덱이 flex:1 을 먹으면
   `align-items:stretch` 가 카드를 창 높이까지 늘린다.
+- **`--font-mono` 에 한글을 넣지 말 것.** JetBrains Mono 는 한글 글리프가 없어
+  글자마다 다른 폰트로 폴백되고, 그게 "폰트가 깨진 것처럼" 보인다.
+  mono 는 ASCII 전용(`$ whatnow --today`, 숫자·퍼센트)에만 쓴다.
+- **로고는 글자(`▚`)가 아니라 `logo.svg`** 다. 특수문자는 폰트마다 모양이 다르거나
+  아예 없다. `<img>` 는 currentColor 를 못 받으므로 SVG 안에 accent 색이 박혀 있다.
+- **커버 이미지는 원본 비율을 지킨다.** Steam 헤더는 460×215(2.14:1).
+  다른 비율 상자에 `object-fit: cover` 로 넣으면 소리 없이 잘린다
+  (이어하기에서 가로 43%가 날아가 있었다). 상자에 `aspect-ratio` 를 주고 `contain`.
 - 색·모서리·글자크기는 `styles.css` 의 `:root` 토큰만 쓴다.
   **원본은 Pen 캔버스의 디자인 변수**이고 `:root` 는 그 사본이다.
 

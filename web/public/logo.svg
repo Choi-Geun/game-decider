@@ -1,0 +1,10 @@
+<!-- 오늘 뭐 깨지 로고 마크.
+     원래는 ▚ (U+259A) 글자를 썼는데, 폰트마다 이 문자를 다르게 그리거나
+     아예 없어서 깨져 보였다. 도형으로 고정한다.
+     색은 --accent(#00E08A) 고정 — <img> 는 currentColor 를 못 받는다. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="오늘 뭐 깨지">
+  <rect x="1.5" y="1.5" width="9" height="9" rx="2" fill="#00E08A"/>
+  <rect x="13.5" y="13.5" width="9" height="9" rx="2" fill="#00E08A"/>
+  <rect x="13.5" y="1.5" width="9" height="9" rx="2" fill="#00E08A" opacity=".28"/>
+  <rect x="1.5" y="13.5" width="9" height="9" rx="2" fill="#00E08A" opacity=".28"/>
+</svg>
