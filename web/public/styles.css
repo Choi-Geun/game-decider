@@ -788,3 +788,35 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   .spin-view { height: auto; margin: 0; }
   .spin-actions { flex-direction: column; }
 }
+
+/* ── 빈 상태 — '없다'로 끝내지 않는다 ─────────────────────────────
+   왜 비었는지와 다음에 할 일을 같이 준다. 첫 사용자가 만나는 화면이다. */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 56px 24px; text-align: center;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
+}
+.es-title { font-size: var(--fs-xl); font-weight: 800; }
+.es-desc { font-size: var(--fs-md); color: var(--text-muted); line-height: 1.6; max-width: 460px; }
+.es-action { margin-top: 8px; }
+.es-btn {
+  display: inline-block; padding: 13px 28px; border: none; border-radius: var(--r-md); cursor: pointer;
+  background: var(--accent); color: var(--on-accent); font-size: var(--fs-md); font-weight: 800;
+  font-family: var(--font-ui); text-decoration: none;
+}
+.es-btn:hover { filter: brightness(1.06); }
+
+/* ── 고른 뒤의 보조 경로 ───────────────────────────────────────────
+   실행이 안 열리거나 이미 깨고 온 경우에 할 게 없으면 안 된다. */
+.dc-alt { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 4px; }
+.dc-check {
+  padding: 7px 16px; border-radius: var(--r-md); cursor: pointer; font-family: var(--font-ui);
+  background: transparent; color: var(--accent); border: 1px solid var(--accent); font-size: var(--fs-xs); font-weight: 700;
+}
+.dc-check:hover { background: var(--chip-active); }
+.dc-check:disabled { opacity: .6; cursor: wait; }
+.dc-store { font-size: var(--fs-xs); color: var(--text-muted); text-decoration: none; }
+.dc-store:hover { color: var(--link); text-decoration: underline; }
+.lead-note { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); margin-left: 6px; }
+.daily-alt { display: inline-block; margin-left: 12px; font-size: var(--fs-xs); color: var(--link); text-decoration: none; }
+.daily-alt:hover { text-decoration: underline; }

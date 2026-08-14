@@ -482,7 +482,11 @@ function renderResume() {
   if (!resumeData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadResume(); return; }
 
   const { active = [], dropped = [], droppedTotal = 0 } = resumeData;
-  if (!active.length && !dropped.length) { box.innerHTML = `<div class="empty">${t('resumeEmpty')}</div>`; return; }
+  if (!active.length && !dropped.length) {
+    box.innerHTML = emptyState(t('resumeEmptyTitle'), t('resumeEmpty'),
+      `<a class="es-btn" href="#daily">${t('goDaily')}</a>`);
+    return;
+  }
 
   let html = '';
   if (active.length) {
@@ -506,6 +510,15 @@ $('resumeContent').addEventListener('click', (e) => {
   const card = e.target.closest('.resume-card');
   if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);
 });
+
+// 빈 상태는 '없다'로 끝내지 않는다. 왜 비었는지와 다음에 할 일을 같이 준다.
+function emptyState(title, desc, action) {
+  return `<div class="empty-state">
+    <div class="es-title">${title}</div>
+    ${desc ? `<div class="es-desc">${desc}</div>` : ''}
+    ${action ? `<div class="es-action">${action}</div>` : ''}
+  </div>`;
+}
 
 // ── 오늘의 도전 (뽑기 루프) ───────────────────────────────────────
 // 읽고 끝나는 화면이 아니라, 미해결 상태를 하나 안고 나가게 만드는 장치.
@@ -563,6 +576,10 @@ function drawCardHtml(c, i, picked) {
       ? `<span class="dc-actions">
            <a class="dc-play" href="${steamRunUrl(c.appid)}">${t('dailyGo')}</a>
            <span class="dc-note">${t('dailyComeBack')}</span>
+           <span class="dc-alt">
+             <button class="dc-check" data-act="check">${t('checkNow')}</button>
+             <a class="dc-store" href="https://store.steampowered.com/app/${c.appid}" target="_blank" rel="noopener">${t('dailyStore')}</a>
+           </span>
          </span>`
       : `<button class="dc-pick" data-pick="${i}">${t('pickThis')}</button>`}
   </article>`;
@@ -572,7 +589,11 @@ function renderDaily() {
   const box = $('dailyContent');
   if (!box) return;
   if (!dailyData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadDaily(); return; }
-  if (dailyData.needsSync) { box.innerHTML = `<div class="empty">${t('dailyNeedSync')}</div>`; return; }
+  if (dailyData.needsSync) {
+    box.innerHTML = emptyState(t('needSyncTitle'), t('needSyncDesc'),
+      `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
+    return;
+  }
 
   const { cards = [], picked, justCompleted, rerollAvailable, stats = {}, recent = [] } = dailyData;
 
@@ -590,18 +611,21 @@ function renderDaily() {
     : '';
 
   if (!cards.length) {
-    box.innerHTML = doneHtml + `<div class="empty">${t('dailyEmpty')}</div>`;
+    box.innerHTML = doneHtml + emptyState(t('dailyEmptyTitle'), t('dailyEmpty'));
     return;
   }
 
   const isPicked = picked != null;
   const shown = isPicked ? [cards[picked.index]] : cards;
 
+  const syncedAt = state.me && state.me.updatedAt ? fmtDate(state.me.updatedAt) : null;
   const head = `<div class="daily-head">
     <h2>${t('dailyTitle')}</h2>
     <span class="daily-stats">${t('statsDone', { n: stats.done || 0 })}</span>
   </div>
-  <p class="view-lead">${isPicked ? t('dailyPickedLead') : t('dailyLead')}</p>`;
+  <p class="view-lead">${isPicked ? t('dailyPickedLead') : t('dailyLead')}${
+    isPicked && syncedAt ? ` <span class="lead-note">${t('lastChecked', { date: syncedAt })}</span>` : ''
+  }</p>`;
 
   const deck = `<div class="draw-deck${isPicked ? ' single' : ''}">
     ${shown.map((c, i) => drawCardHtml(c, isPicked ? picked.index : i, isPicked)).join('')}
@@ -611,7 +635,10 @@ function renderDaily() {
   const foot = rerollAvailable
     ? `<div class="daily-foot"><button class="daily-reroll" data-act="${isPicked ? 'giveup' : 'reroll'}">
         ${isPicked ? t('giveUpBtn') : t('rerollBtn')}</button></div>`
-    : `<div class="daily-foot"><span class="daily-note">${t('rerollUsed')}</span></div>`;
+    : `<div class="daily-foot">
+        <span class="daily-note">${t('rerollUsed')}</span>
+        <a class="daily-alt" href="#resume">${t('rerollUsedAlt')}</a>
+      </div>`;
 
   const recentHtml = recent.length
     ? `<section class="coll-block"><h3 class="cb-title">${t('recentDone')}</h3>
@@ -628,7 +655,15 @@ $('dailyContent').addEventListener('click', (e) => {
   const pickBtn = e.target.closest('[data-pick]');
   if (pickBtn) return dailyAction('/api/draw/pick', { index: Number(pickBtn.dataset.pick) });
   const act = e.target.closest('[data-act]');
-  if (act) return dailyAction('/api/draw/' + act.dataset.act);
+  if (!act) return;
+  // 판정은 동기화가 한다. 유저가 직접 확인할 수 있는 길을 열어둔다 —
+  // 깼는데 화면이 그대로면 기다리는 것 말곤 할 게 없었다.
+  if (act.dataset.act === 'check' || act.dataset.act === 'sync') {
+    act.disabled = true;
+    act.textContent = t('checking');
+    return startSync(false);
+  }
+  dailyAction('/api/draw/' + act.dataset.act);
 });
 
 // ── 수집함 ────────────────────────────────────────────────────────
@@ -718,7 +753,11 @@ function renderCollected(box) {
   if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
 
   const { counts, crown, games, harvest } = collectionData;
-  if (!crown) { box.innerHTML = `<div class="empty">${t('collectionEmpty')}</div>`; return; }
+  if (!crown) {
+    box.innerHTML = emptyState(t('collectionEmptyTitle'), t('collectionEmpty'),
+      `<a class="es-btn" href="#daily">${t('goDaily')}</a>`);
+    return;
+  }
 
   // 등급 인덱스 — 색만으로는 안 들어온다. 기준을 글자로 못박는다.
   const tiles = [
