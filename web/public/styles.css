@@ -1281,13 +1281,26 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 /* ── 디자인 캡처 모드 (?w=390&h=844) ──
    Pen 임포터는 뷰포트가 아니라 #app 을 프레임으로 잡는다. 고정(fixed) 요소는
    프레임이 아니라 창 전체를 기준으로 놓여 프레임 밖으로 나가므로 흐름 안으로 되돌린다. */
+/* 프레임을 실제 폰 화면 크기(390×844)로 고정한다. 안 그러면 #app 이 내용만큼
+   자라서 도전과제 화면이 19000px 짜리 프레임이 되고, 흐름 맨 끝으로 밀린 탭바가
+   화면 어디에도 안 보인다 — 탭바가 이 개편의 핵심인데 그림에서 빠지는 셈이다.
+   넘치는 내용은 Pen 프레임의 clip 이 자른다. CSS overflow 로 자르면 임포터가
+   컨테이너를 통째로 래스터화해 .main 이 사각형 한 장으로 들어온다(문서의 함정). */
+.mobile .app.capture { position: relative; height: var(--vh); }
 .mobile .app.capture .mtopbar { position: static; }
-.mobile .app.capture .tabbar { position: static; padding-bottom: 0; }
+.mobile .app.capture .tabbar { position: absolute; left: 0; right: 0; bottom: 0; padding-bottom: 0; }
 .mobile .app.capture .main { padding-bottom: 18px; }
 .mobile .app.capture .sheet-scrim { display: none; }
 .mobile .app.capture .lnb { display: none; }
-/* ?sheet=1 → 시트 열린 상태를 따로 캡처 */
+/* ?sheet=1 → 시트 열린 상태를 따로 캡처.
+   static 으로 흐름에 넣으면 헤더 바로 아래에 끼어들어 '하단 오버레이'라는
+   사실이 그림에서 사라진다. #app 기준 absolute 로 바닥에 붙여 실제 위치대로 찍는다
+   (fixed 는 프레임이 아니라 창 기준이라 임포트에서 빠진다). */
 .mobile .app.capture.sheet-open .lnb {
-  display: flex; position: static; transform: none; visibility: visible;
-  max-height: none; border-radius: 0; box-shadow: none;
+  display: flex; position: absolute; left: 0; right: 0; bottom: 0; top: auto;
+  transform: none; visibility: visible; max-height: none; box-shadow: none;
+}
+.mobile .app.capture.sheet-open .sheet-scrim {
+  display: block; position: absolute; inset: 0;
+  opacity: 1; visibility: visible;
 }
