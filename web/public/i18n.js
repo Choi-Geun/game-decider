@@ -1,9 +1,11 @@
 // 다국어 사전 (한국어/English)
 const I18N = {
   ko: {
-    appTitle: '무슨 게임 하지',
-    loginDesc: 'Steam 라이브러리에서 오늘 켤 게임을 골라줄게요.',
-    loginBtn: 'Steam으로 로그인',
+    appTitle: "오늘 뭐 깨지",
+    loginDesc: "안 깬 도전과제 중 하나를 골라 오늘의 목표로 만들어 드려요.",
+    loginLead: "라이브러리는 꽉 찼는데, 켤 게 없다.",
+    loginNote: "Steam OpenID로 인증합니다 · 비밀번호는 받지 않아요",
+    loginBtn: "Steam으로 로그인",
     loginChecking: '로그인 창 확인 중…',
     sync: '🔄 동기화',
     syncing: '⏳ 동기화 중…',
@@ -197,9 +199,11 @@ const I18N = {
     dsDlcCount: 'DLC {n}종 별도',
   },
   en: {
-    appTitle: 'What to Play',
-    loginDesc: "We'll pick tonight's game from your Steam library.",
-    loginBtn: 'Sign in with Steam',
+    appTitle: "What to Beat Today",
+    loginDesc: "We pick one unearned achievement and make it today's goal.",
+    loginLead: "A full library, and nothing to play.",
+    loginNote: "Steam OpenID · we never see your password",
+    loginBtn: "Sign in with Steam",
     loginChecking: 'Waiting for login…',
     sync: '🔄 Sync',
     syncing: '⏳ Syncing…',

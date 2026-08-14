@@ -103,13 +103,44 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .view-sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
 
 /* ── 로그인 화면 ── */
-.login-screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(1200px 600px at 50% -10%, var(--bg-glow), var(--bg)); }
+.login-screen {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background:
+    /* 아주 옅은 격자 — 터미널/그래프용지 느낌만 남기고 존재를 드러내지 않는다 */
+    repeating-linear-gradient(0deg, transparent 0 39px, rgba(36, 55, 74, .22) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgba(36, 55, 74, .22) 39px 40px),
+    radial-gradient(1100px 620px at 22% -8%, var(--bg-glow), var(--bg));
+}
 .corner-lang { position: fixed; top: 18px; right: 18px; width: auto; z-index: 10; }
-.login-box { text-align: center; padding: 40px; }
-.login-logo { font-size: 64px; }
-.login-box h1 { font-size: 30px; margin: 8px 0; }
-.login-desc { color: var(--muted); margin-bottom: 24px; }
-.steam-login { padding: 14px 24px; border: 1px solid var(--steam-border); border-radius: var(--r-md); background: var(--steam); color: var(--link); font-size: var(--fs-lg); font-weight: 700; cursor: pointer; }
+/* 가운데 정렬 대신 왼쪽 정렬 — 랜딩페이지보다 터미널 출력에 가깝게 */
+.login-box { text-align: left; padding: 40px; width: min(560px, 90vw); }
+.login-prompt {
+  font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 500;
+  color: var(--accent); letter-spacing: .02em; margin-bottom: 18px;
+}
+.lp-sign { color: var(--text-muted); margin-right: 6px; }
+.caret {
+  display: inline-block; width: 8px; height: 15px; margin-left: 3px; vertical-align: -2px;
+  background: var(--accent); animation: caret-blink 1.1s steps(1) infinite;
+}
+@keyframes caret-blink { 0%, 50% { opacity: 1 } 50.01%, 100% { opacity: 0 } }
+.login-box h1 {
+  font-size: clamp(38px, 6.5vw, var(--fs-hero)); line-height: 1.08; margin: 0 0 18px;
+  font-weight: 800; letter-spacing: -0.02em;
+}
+.login-lead { color: var(--text); font-size: var(--fs-xl); font-weight: 600; margin: 0 0 6px; }
+.login-desc { color: var(--text-muted); font-size: var(--fs-md); line-height: 1.6; margin: 0 0 28px; }
+.login-note {
+  font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted);
+  margin: 14px 0 0; opacity: .8;
+}
+.steam-login {
+  padding: 15px 30px; border: none; border-radius: var(--r-md); cursor: pointer;
+  background: linear-gradient(90deg, var(--accent), var(--accent-cyan));
+  color: var(--on-accent); font-size: var(--fs-lg); font-weight: 800;
+  font-family: var(--font-ui); transition: filter .12s, transform .08s;
+}
+.steam-login:hover { filter: brightness(1.06); transform: translateY(-1px); }
 .steam-login:disabled { opacity: 0.6; cursor: wait; }
 
 /* ── 앱 셸 ── */
@@ -611,3 +642,10 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .d-stat.t-good .ds-value { color: var(--accent); }
 .ds-label { font-size: 12px; font-weight: 700; color: var(--text-2); }
 .ds-sub { font-size: 11px; color: var(--muted); }
+
+/* 브랜드 — 이모지 대신 기하 문양 + 모노. LNB 상단이 로고 자리다. */
+.brand { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); }
+.brand-sign { color: var(--accent); font-family: var(--font-mono); font-weight: 700; }
+
+/* 로그인 화면 언어 전환은 우상단에 조용히 */
+.corner-lang { position: fixed; top: 20px; right: 20px; z-index: 2; }

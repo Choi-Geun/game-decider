@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>무슨 게임 하지</title>
+  <title>오늘 뭐 깨지</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -16,10 +16,12 @@
       <button data-lang="ko">한국어</button><button data-lang="en">English</button>
     </div>
     <div class="login-box">
-      <div class="login-logo">🎮</div>
-      <h1 data-i18n="appTitle">지금 뭐 켜지</h1>
-      <p class="login-desc" data-i18n="loginDesc">Steam 라이브러리에서 오늘 켤 게임을 골라줄게요.</p>
-      <button class="steam-login" id="login">🔑 <span data-i18n="loginBtn">Steam으로 로그인</span></button>
+      <div class="login-prompt"><span class="lp-sign">$</span> whatnow --today<i class="caret"></i></div>
+      <h1 data-i18n="appTitle">오늘 뭐 깨지</h1>
+      <p class="login-lead" data-i18n="loginLead">라이브러리는 꽉 찼는데, 켤 게 없다.</p>
+      <p class="login-desc" data-i18n="loginDesc">안 깬 도전과제 중 하나를 골라 오늘의 목표로 만들어 드려요.</p>
+      <button class="steam-login" id="login" data-i18n="loginBtn">Steam으로 로그인</button>
+      <p class="login-note"><span data-i18n="loginNote">Steam OpenID로 인증합니다 · 비밀번호는 받지 않아요</span></p>
     </div>
   </div>
 
@@ -27,7 +29,7 @@
   <div id="app" class="app hidden">
     <!-- LNB -->
     <aside class="lnb">
-      <div class="brand">🎮 <span>GameDecider</span></div>
+      <div class="brand"><span class="brand-sign">▚</span> <span>오늘 뭐 깨지</span></div>
 
       <div class="profile" id="profile">
         <img id="avatar" class="avatar" />
