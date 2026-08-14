@@ -181,6 +181,8 @@ $('sync').addEventListener('click', () => startSync(false));
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
 //   #spin | #games | #games/{appid} | #ach | #ach/{subtab} | #friends
+// 'spin' 은 LNB 에서 뺐지만 라우트는 남겨둔다 — '오늘의 도전'과 목적이 겹쳐
+// 메뉴에 둘 다 두면 '뭘 눌러야 하지'가 생긴다. #spin 으로는 여전히 열린다.
 const VIEWS = ['daily', 'spin', 'resume', 'games', 'ach', 'friends'];
 const ACH_TABS = ['collected', 'targets', 'game'];
 
