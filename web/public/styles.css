@@ -697,3 +697,94 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 
 /* 게임별 카드도 더 촘촘히 — 노출 개수가 너무 적다는 지적 */
 .gcol-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+
+/* ── 섹션 제목 (이어하기·트로피·친구랑 공통) ──────────────────────
+   그룹이 제목 한 줄뿐이면 어디서 끊기는지 안 보인다. 왼쪽 accent 바로 못박는다. */
+.group-title, .rg-title {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 14px; padding: 0 0 10px 12px;
+  font-size: var(--fs-lg); font-weight: 800; color: var(--text);
+  border-left: 3px solid var(--accent); border-bottom: 1px solid var(--border);
+}
+.gt-count, .rg-count { margin-left: auto; font-weight: 400; font-size: var(--fs-xs); color: var(--text-muted); }
+.resume-group + .resume-group { margin-top: 34px; }
+
+/* ── 게임별 트로피 카드 ────────────────────────────────────────────
+   게임 아트는 여기서 딱 한 번 쓰인다. 트로피는 그 게임의 맥락 안에서 읽힌다. */
+.gt-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.gt-card {
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
+}
+.gt-head { position: relative; display: block; height: 84px; text-decoration: none; }
+.gt-art { width: 100%; height: 84px; object-fit: cover; display: block; }
+.gt-head .cover-fallback { width: 100%; height: 84px; }
+.gt-shade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, var(--scrim-strong)); }
+.gt-title {
+  position: absolute; left: 12px; right: 12px; bottom: 8px; color: var(--text);
+  font-size: var(--fs-sm); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gt-meta { display: flex; align-items: center; gap: 6px; padding: 10px 12px 8px; flex-wrap: wrap; }
+.gt-prog { margin-left: auto; font-size: var(--fs-xs); color: var(--text-muted); }
+.gt-rows { display: flex; flex-direction: column; }
+.gt-row {
+  display: flex; align-items: baseline; gap: 10px; padding: 6px 12px;
+  text-decoration: none; color: inherit; border-left: 3px solid transparent;
+}
+.gt-row:hover { background: var(--chip); }
+.gt-row.t-legendary { border-left-color: var(--gold); }
+.gt-row.t-rare { border-left-color: var(--rare); }
+.gt-row.t-normal { border-left-color: var(--common); }
+.gt-row.t-common { border-left-color: var(--border); }
+.gt-pct { flex: none; width: 46px; font-size: var(--fs-xs); font-weight: 800; font-family: var(--font-mono); }
+.gt-row.t-legendary .gt-pct { color: var(--gold); }
+.gt-row.t-rare .gt-pct { color: var(--rare); }
+.gt-row.t-normal .gt-pct { color: var(--common); }
+.gt-name { font-size: var(--fs-sm); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-more {
+  display: block; padding: 9px 12px 12px; font-size: var(--fs-xs);
+  color: var(--link); text-decoration: none;
+}
+.gt-more:hover { text-decoration: underline; }
+
+/* ── 거의 다 깬 게임 ──────────────────────────────────────────────── */
+.almost-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.almost-row {
+  display: flex; align-items: center; gap: 14px; padding: 10px 14px; text-decoration: none; color: inherit;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
+}
+.almost-row:hover { border-color: var(--accent); }
+.am-art, .almost-row .cover-fallback { width: 92px; height: 43px; flex: none; object-fit: cover; border-radius: var(--r-sm); }
+.am-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.am-top { display: flex; align-items: baseline; gap: 8px; }
+.am-name { font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.am-pct { margin-left: auto; flex: none; font-size: var(--fs-sm); font-weight: 800; color: var(--accent); }
+.am-bar { display: block; height: 6px; border-radius: var(--r-xs); background: var(--track); overflow: hidden; }
+.am-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-cyan)); }
+.am-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* ── 랜덤 스핀 — 한 화면에 딱 맞게 ─────────────────────────────────
+   좌우 여백을 걷어내 무대를 넓히고, 세로는 화면 안에서 끝나게 한다(스크롤 없음).
+   실행과 돌려! 는 위아래로 겹쳐 두니 계속 붙어 보였다 → 한 줄에 나란히,
+   역할이 다르니 생김새도 다르게(실행=채움 / 돌려=테두리). */
+#view-spin { max-width: none; }
+.spin-view {
+  display: flex; flex-direction: column; gap: 12px;
+  height: calc(100vh - 56px); margin: 0 -24px;
+}
+.spin-view .spin-stage { flex: 1 1 auto; min-height: 0; }
+.spin-view .pick { flex: none; }
+.spin-actions {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 20px;
+  padding-bottom: 6px;
+}
+.spin-actions .pick-play { margin-top: 0; }
+.spin-actions .reroll {
+  margin: 0; padding: 14px 40px; font-size: var(--fs-lg);
+  background: var(--chip); color: var(--accent); border: 1px solid var(--accent); box-shadow: none;
+}
+.spin-actions .reroll:hover { background: var(--chip-active); transform: none; }
+@media (max-width: 900px) {
+  .spin-view { height: auto; margin: 0; }
+  .spin-actions { flex-direction: column; }
+}

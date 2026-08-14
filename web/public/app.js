@@ -684,10 +684,40 @@ function gameCollectionCard(g) {
 }
 
 // '모은 것' 탭 — 달성한 것 = 수집. 도전과제 뷰 안으로 들어왔다.
+// 게임 한 장 = 그 게임의 트로피 묶음. 아트는 여기서 딱 한 번 쓰인다.
+function gameTrophyCard(g, mode) {
+  const list = mode === 'targets' ? g.nextUp : g.top;
+  if (!list || !list.length) return '';
+  const shown = list.slice(0, 3);
+  const restCount = (mode === 'targets' ? g.remaining : g.counts.total) - shown.length;
+  const pills = [];
+  if (mode === 'targets') {
+    pills.push(`<span class="cnt-pill t-common">${t('remainingCount', { n: g.remaining })}</span>`);
+  } else {
+    if (g.counts.legendary) pills.push(`<span class="cnt-pill t-legendary">${TIER_ICON.legendary} ${g.counts.legendary}</span>`);
+    if (g.counts.rare) pills.push(`<span class="cnt-pill t-rare">${TIER_ICON.rare} ${g.counts.rare}</span>`);
+    if (!pills.length) pills.push(`<span class="cnt-pill t-common">${g.counts.total}</span>`);
+  }
+  const rows = shown.map((a) => `<a class="gt-row t-${a.tier}" href="#games/${g.appid}" title="${esc(a.name)}${a.description ? ' — ' + esc(a.description) : ''}">
+      <span class="gt-pct">${a.globalPercent}%</span>
+      <span class="gt-name">${esc(a.name)}</span>
+    </a>`).join('');
+  return `<article class="gt-card">
+    <a class="gt-head" href="#games/${g.appid}" title="${esc(g.name)}">
+      <img class="gt-art" src="${imgHeader(g)}" ${coverAttrs(g)}>
+      <span class="gt-shade"></span>
+      <span class="gt-title">${esc(g.name)}</span>
+    </a>
+    <div class="gt-meta">${pills.join('')}<span class="gt-prog">${t('achCount', { u: g.unlocked, t: g.total })} · ${g.completionPct}%</span></div>
+    <div class="gt-rows">${rows}</div>
+    ${restCount > 0 ? `<a class="gt-more" href="#games/${g.appid}">${t('moreCount', { n: restCount })}</a>` : ''}
+  </article>`;
+}
+
 function renderCollected(box) {
   if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
 
-  const { counts, crown, showcase, games, nextTargets, harvest } = collectionData;
+  const { counts, crown, games, harvest } = collectionData;
   if (!crown) { box.innerHTML = `<div class="empty">${t('collectionEmpty')}</div>`; return; }
 
   // 등급 인덱스 — 색만으로는 안 들어온다. 기준을 글자로 못박는다.
@@ -704,7 +734,7 @@ function renderCollected(box) {
       <span class="tt-n">${counts.total}</span><span class="tt-desc">&nbsp;</span></div>
   </div>`;
 
-  // 왕관 — 최고 기록 하나는 여전히 크게 세운다
+  // 최고 기록 하나는 크게 — 들어오자마자 뿌듯할 거리가 있어야 한다
   const crownHtml = `<section class="crown-card">
     <img class="crown-art" src="${imgHeader(crown)}" data-fallback="${esc(crown.gameName)}">
     <div class="crown-body">
@@ -716,34 +746,34 @@ function renderCollected(box) {
     </div>
   </section>`;
 
-  // 트로피 진열 — 가로 스크롤. 각 카드에 게임 아트 + 등급 배지
-  const shelf = showcase.length
-    ? `<section class="coll-block">
-        <h3 class="cb-title">${t('trophyShelf')}<span class="cb-sub">${t('trophyShelfLead')}</span></h3>
-        <div class="trophy-grid">${showcase.map(trophyCard).join('')}</div>
-      </section>`
-    : '';
+  const withTrophies = (games || []).filter((g) => g.top && g.top.length);
+  const gamesHtml = `<section class="coll-block">
+    <h3 class="group-title">${t('gamesTrophies')}<span class="gt-count">${t('collectionCount', { n: withTrophies.length })}</span></h3>
+    ${withTrophies.length
+      ? `<div class="gt-grid">${withTrophies.map((g) => gameTrophyCard(g, 'collected')).join('')}</div>`
+      : `<div class="empty">${t('gameShelfEmpty')}</div>`}
+  </section>`;
 
   const harvestHtml = `<section class="coll-block">
-    <h3 class="cb-title">${t('harvestTitle', { d: harvest.days })}
-      <span class="cb-sub">${harvest.count ? t('collectionCount', { n: harvest.count }) + (harvest.rarest ? ' · ' + t('harvestRarest', { p: harvest.rarest.globalPercent }) : '') : ''}</span></h3>
+    <h3 class="group-title">${t('harvestTitle', { d: harvest.days })}
+      <span class="gt-count">${harvest.count ? t('collectionCount', { n: harvest.count }) : ''}</span></h3>
     ${harvest.count
       ? `<div class="trophy-grid">${harvest.items.map(trophyCard).join('')}</div>`
       : `<div class="empty">${t('harvestNone')}</div>`}
   </section>`;
 
-  box.innerHTML = tilesHtml + crownHtml + shelf + harvestHtml;
+  box.innerHTML = tilesHtml + crownHtml + gamesHtml + harvestHtml;
 }
 
 // '노릴 것' 탭 — 미달성 = 사냥감. '모은 것'과 정확히 반대 축이다.
 function renderTargets(box) {
   if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
-  const { counts, nextTargets } = collectionData;
+  const { counts, nextTargets, almostDone, games } = collectionData;
 
-  // 다음 전설 후보 — 이 탭의 머리. 남은 전설 중 가장 손에 닿는 것들
+  // 1) 가까운 후보 — 남은 전설 중 가장 손에 닿는 것들
   const nextHtml = nextTargets.length
     ? `<section class="coll-block">
-        <h3 class="cb-title">${t('nextTargetTitle')}</h3>
+        <h3 class="group-title">${t('nextTargetTitle')}</h3>
         <p class="cb-lead">${t('nextTargetLead')}</p>
         <div class="target-list">${nextTargets.map((x) => {
           const g = { appid: x.appid, name: x.gameName, images: x.images };
@@ -760,28 +790,37 @@ function renderTargets(box) {
       </section>`
     : '';
 
-  // 미달성을 등급별로. '모은 것'과 같은 등급 이름을 쓴다 — 다이아/골드 같은 별도 체계를
-  // 두면 같은 희귀도를 두 가지로 부르게 되어 혼란만 생긴다.
-  const locked = [];
-  for (const g of withAchGames()) {
-    for (const a of g.ach.achievements) {
-      if (a.achieved || a.globalPercent == null) continue;
-      locked.push({ name: a.name, gameName: g.name, appid: g.appid, images: g.images, globalPercent: a.globalPercent, tier: collTierOf(a.globalPercent) });
-    }
-  }
-  const LIMIT = 40;
-  const groups = ['legendary', 'rare', 'normal'].map((tier) => {
-    const arr = locked.filter((a) => a.tier === tier).sort((a, b) => b.globalPercent - a.globalPercent);
-    if (!arr.length) return '';
-    const more = arr.length > LIMIT ? `<span class="cb-sub">+${arr.length - LIMIT}</span>` : '';
-    return `<section class="coll-block">
-      <h3 class="cb-title">${tierBadge(tier)}<span class="cb-sub">${t('collectionCount', { n: arr.length })}</span>${more}</h3>
-      <div class="trophy-grid">${arr.slice(0, LIMIT).map(trophyCard).join('')}</div>
-    </section>`;
-  }).join('');
+  // 2) 거의 다 깬 게임 — 완주가 눈앞이면 동기가 가장 세다
+  const almost = (almostDone || []).filter((g) => g.nextUp && g.nextUp.length);
+  const almostHtml = almost.length
+    ? `<section class="coll-block">
+        <h3 class="group-title">${t('almostTitle')}</h3>
+        <p class="cb-lead">${t('almostLead')}</p>
+        <div class="almost-list">${almost.map((g) => `
+          <a class="almost-row" href="#games/${g.appid}" title="${esc(g.name)}">
+            <img class="am-art" src="${imgHeader(g)}" ${coverAttrs(g)}>
+            <span class="am-body">
+              <span class="am-top"><span class="am-name">${esc(g.name)}</span>
+                <span class="am-pct">${g.completionPct}%</span></span>
+              <span class="am-bar"><i style="width:${g.completionPct}%"></i></span>
+              <span class="am-sub">${t('achCount', { u: g.unlocked, t: g.total })} · ${t('remainingCount', { n: g.remaining })}</span>
+            </span>
+          </a>`).join('')}</div>
+      </section>`
+    : '';
 
-  box.innerHTML = nextHtml + (groups || `<div class="empty">${t('emptyGroup')}</div>`);
+  // 3) 게임별 남은 트로피 — 라이브러리 전체를 훑을 수 있게
+  const withLeft = (games || []).filter((g) => g.nextUp && g.nextUp.length);
+  const gamesHtml = `<section class="coll-block">
+    <h3 class="group-title">${t('targetsByGame')}<span class="gt-count">${t('collectionCount', { n: withLeft.length })}</span></h3>
+    ${withLeft.length
+      ? `<div class="gt-grid">${withLeft.map((g) => gameTrophyCard(g, 'targets')).join('')}</div>`
+      : `<div class="empty">${t('emptyGroup')}</div>`}
+  </section>`;
+
+  box.innerHTML = nextHtml + almostHtml + gamesHtml;
 }
+
 
 // ── 게임 상세 ─────────────────────────────────────────────────────
 const detailCache = {};

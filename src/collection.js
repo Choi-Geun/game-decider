@@ -66,6 +66,15 @@ function byGame(games) {
         counts[tierOf(a.globalPercent)]++;
         counts.total++;
       }
+      const pick = (arr, n) => arr.slice(0, n).map((a) => ({
+        apiname: a.apiname, name: a.name, description: a.description,
+        globalPercent: a.globalPercent, tier: tierOf(a.globalPercent), unlockTime: a.unlockTime || null,
+      }));
+      const withPct = list.filter((a) => a.globalPercent != null);
+      // 딴 것 중 희귀한 순 — 그 게임에서 자랑할 만한 것
+      const done = withPct.filter((a) => a.achieved).sort((x, y) => x.globalPercent - y.globalPercent);
+      // 남은 것 중 흔한 순 — 그 게임에서 다음에 손댈 만한 것
+      const left = withPct.filter((a) => !a.achieved).sort((x, y) => y.globalPercent - x.globalPercent);
       return {
         appid: game.appid,
         name: game.name,
@@ -74,6 +83,9 @@ function byGame(games) {
         unlocked: (game.ach && game.ach.unlocked) || 0,
         total: (game.ach && game.ach.total) || 0,
         completionPct: (game.ach && game.ach.completionPct) || 0,
+        remaining: left.length,
+        top: pick(done, 4),
+        nextUp: pick(left, 4),
       };
     })
     .filter((g) => g.counts.total > 0)
@@ -115,6 +127,7 @@ function buildCollection(cache, opts = {}) {
   const harvestDays = opts.harvestDays || 30;
   const games = cache.games || [];
 
+  const gameRows = byGame(games);
   const unlocked = flatten(games, (a) => a.achieved).sort(byRarest);
 
   const counts = { legendary: 0, rare: 0, normal: 0, common: 0, total: unlocked.length };
@@ -134,7 +147,9 @@ function buildCollection(cache, opts = {}) {
     crown: unlocked[0] || null,
     showcase,
     // 게임별 현황 — 내 수집이 어디에 몰려 있는지
-    games: byGame(games),
+    games: gameRows,
+    // 완주가 눈앞인 게임
+    almostDone: almostDone(gameRows),
     // 다음 전설 후보. 수집함이 앞으로 향하게 하는 유일한 장치
     nextTargets: nextTargets(games, 'legendary', 3),
     harvest: {
@@ -146,4 +161,15 @@ function buildCollection(cache, opts = {}) {
   };
 }
 
-module.exports = { buildCollection, tierOf, TIERS, nextTargets, byGame };
+/**
+ * 완주에 가까운 게임. 절대 임계값(85% 이상 같은)으로 끊으면 라이브러리에 따라
+ * 통째로 비어버리므로(실측: 본인 87개 중 '3개 이하 남음' 0개) 상대 순위로 뽑는다.
+ */
+function almostDone(gameRows, limit = 6) {
+  return gameRows
+    .filter((g) => g.remaining > 0 && g.total > 3)
+    .sort((a, b) => b.completionPct - a.completionPct || a.remaining - b.remaining)
+    .slice(0, limit);
+}
+
+module.exports = { buildCollection, tierOf, TIERS, nextTargets, byGame, almostDone };
