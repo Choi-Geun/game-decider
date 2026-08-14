@@ -1,0 +1,43 @@
+# Render Blueprint.
+# 대시보드에서 New → Blueprint 로 이 리포를 연결하면 아래 설정대로 서비스가 만들어진다.
+#
+# 서버는 web/ 에 있지만 공용 로직(src/)이 리포 루트에 있다.
+# 그래서 rootDir 을 web 으로 잡으면 ../src 를 못 찾는다 — 루트에서 cd web 으로 실행한다.
+
+services:
+  - type: web
+    name: game-decider
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: cd web && npm ci
+    startCommand: cd web && node server.js
+    healthCheckPath: /healthz
+    envVars:
+      # Steam Web API 키. https://steamcommunity.com/dev/apikey (무료)
+      # sync: false = 값을 리포에 두지 않고 Render 대시보드에서 직접 입력한다.
+      - key: STEAM_API_KEY
+        sync: false
+      # gd_auth 로그인 쿠키 서명 키. Render 가 임의 문자열을 생성해준다.
+      # 이 값이 노출되면 누구나 남의 SteamID 로 로그인할 수 있다.
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: NODE_VERSION
+        value: "20"
+
+    # BASE_URL 은 안 넣는다 — Render 가 RENDER_EXTERNAL_URL 을 자동 주입하고
+    # server.js 가 그걸 폴백으로 쓴다. 커스텀 도메인을 붙이면 그때 BASE_URL 을 추가할 것.
+    #
+    # ⚠️ DEV_LOGIN_STEAMID 는 넣지 말 것.
+    #    (localhost 게이트에 막히긴 하지만 배포 환경에 있을 이유가 없다.)
+    #
+    # Free 플랜은 디스크가 휘발성이다. 재배포·자동 슬립 후 깨어나면
+    # web/.cache 와 web/.state 가 비어 있고 유저는 다시 동기화해야 한다.
+    # 영구 보존이 필요해지면 Starter 로 올리고 아래를 켠다:
+    #
+    # disk:
+    #   name: data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # + envVars 에 DATA_DIR=/var/data 추가

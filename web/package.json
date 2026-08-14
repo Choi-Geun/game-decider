@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "지금 뭐 켜지 — 웹 버전 (멀티유저, Steam OpenID 로그인)",
   "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server.js"
   },

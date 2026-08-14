@@ -27,13 +27,36 @@ if (env.INSECURE_TLS === '1') process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const API_KEY = env.STEAM_API_KEY;
 const PORT = Number(env.PORT || 3000);
-const BASE_URL = env.BASE_URL || `http://localhost:${PORT}`;
-const CACHE_DIR = path.join(__dirname, '.cache');
-const STATE_DIR = path.join(__dirname, '.state');
 
+// 배포 여부. Render 는 RENDER=true 와 서비스 URL 을 자동으로 넣어준다.
+const IS_DEPLOYED = env.RENDER === 'true' || env.NODE_ENV === 'production';
+// OpenID realm·return_to 에 그대로 쓰이므로 실제 접속 주소와 정확히 같아야 한다.
+const BASE_URL = (env.BASE_URL || env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+
+// 데이터 경로. Render 영구 디스크를 붙였다면 DATA_DIR 로 그쪽을 가리킨다.
+const DATA_DIR = env.DATA_DIR || __dirname;
+const CACHE_DIR = path.join(DATA_DIR, '.cache');
+const STATE_DIR = path.join(DATA_DIR, '.state');
+
+// gd_auth 쿠키는 이 키로 SteamID 를 HMAC 서명한다. 키가 알려지면
+// 누구나 남의 SteamID 로 서명된 쿠키를 만들어 그 사람 행세를 할 수 있다.
+// 그래서 배포 환경에서는 기본값으로 뜨지 않고 죽는다.
 const AUTH_SECRET = env.SESSION_SECRET || 'dev-secret-change-me';
+if (IS_DEPLOYED && AUTH_SECRET === 'dev-secret-change-me') {
+  console.error('❌ SESSION_SECRET 이 없습니다. 이 값 없이 배포하면 누구나 로그인 쿠키를 위조할 수 있습니다.');
+  console.error('   Render → Environment 에 SESSION_SECRET 을 추가하세요 (임의의 긴 문자열).');
+  process.exit(1);
+}
 const AUTH_COOKIE = 'gd_auth';
 const AUTH_MAX_AGE = 1000 * 60 * 60 * 24 * 30; // 30일
+// HTTPS 로 서비스될 때만 secure. 로컬 http 에서 켜면 쿠키가 아예 안 붙는다.
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: BASE_URL.startsWith('https://'),
+  maxAge: AUTH_MAX_AGE,
+  path: '/',
+};
 
 // SteamID를 HMAC 서명해 쿠키에 담는다 → 서버 재시작/배포해도 로그인 유지(스테이트리스).
 function signId(id) {
@@ -64,15 +87,25 @@ function parseCookies(req) {
 }
 
 const app = express();
+// Render 는 프록시 뒤에 있다. 이걸 켜야 req.protocol / secure 쿠키가 제대로 동작한다.
+if (IS_DEPLOYED) app.set('trust proxy', 1);
 app.use(express.json());
 app.use(
   session({
     secret: AUTH_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }, // 7일
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7일
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: COOKIE_OPTS.secure,
+    },
   })
 );
+
+// 헬스체크 — Render 가 기동 확인에 쓴다. 로그인 없이 응답해야 한다.
+app.get('/healthz', (_req, res) => res.type('text').send('ok'));
 
 // 세션이 비어도 서명된 gd_auth 쿠키가 있으면 로그인 자동 복원.
 app.use(async (req, res, next) => {
@@ -107,12 +140,7 @@ app.get('/auth/steam/return', async (req, res) => {
   if (ok && steamId) {
     req.session.steamId = steamId;
     // 서버 재시작에도 로그인 유지되도록 서명된 쿠키 저장
-    res.cookie(AUTH_COOKIE, signId(steamId), {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: AUTH_MAX_AGE,
-      path: '/',
-    });
+    res.cookie(AUTH_COOKIE, signId(steamId), COOKIE_OPTS);
     // 프로필 이름/아바타 미리 저장
     try {
       const p = await api.getPlayerSummary(API_KEY, steamId);
@@ -150,7 +178,10 @@ display:flex;align-items:center;justify-content:center;height:100vh;margin:0;tex
 // 배포 환경에는 DEV_LOGIN_STEAMID 를 넣지 말 것 (없으면 404로 존재 자체가 감춰짐).
 const DEV_LOGIN_STEAMID = env.DEV_LOGIN_STEAMID;
 
+// 삼중 게이트. 호스트 판정은 trust proxy 아래에서 X-Forwarded-Host 를 따라가므로
+// 위조 여지가 있다 → 배포 환경이면 환경변수·호스트와 무관하게 통째로 막는다.
 function isLocalRequest(req) {
+  if (IS_DEPLOYED) return false;
   const host = (req.hostname || '').toLowerCase();
   return host === 'localhost' || host === '127.0.0.1' || host === '::1';
 }
@@ -159,12 +190,7 @@ app.get('/dev/login', async (req, res) => {
   if (!DEV_LOGIN_STEAMID || !isLocalRequest(req)) return res.status(404).end();
 
   req.session.steamId = DEV_LOGIN_STEAMID;
-  res.cookie(AUTH_COOKIE, signId(DEV_LOGIN_STEAMID), {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: AUTH_MAX_AGE,
-    path: '/',
-  });
+  res.cookie(AUTH_COOKIE, signId(DEV_LOGIN_STEAMID), COOKIE_OPTS);
   if (!req.session.profile) {
     try {
       const p = await api.getPlayerSummary(API_KEY, DEV_LOGIN_STEAMID);
@@ -178,12 +204,12 @@ app.get('/dev/login', async (req, res) => {
 // 같은 이중 게이트 — 환경변수 + localhost.
 app.get('/dev/logout', (req, res) => {
   if (!DEV_LOGIN_STEAMID || !isLocalRequest(req)) return res.status(404).end();
-  res.clearCookie(AUTH_COOKIE, { path: '/' });
+  res.clearCookie(AUTH_COOKIE, { path: '/', httpOnly: true, sameSite: 'lax', secure: COOKIE_OPTS.secure });
   req.session.destroy(() => res.redirect('/'));
 });
 
 app.post('/auth/logout', (req, res) => {
-  res.clearCookie(AUTH_COOKIE, { path: '/' });
+  res.clearCookie(AUTH_COOKIE, { path: '/', httpOnly: true, sameSite: 'lax', secure: COOKIE_OPTS.secure });
   req.session.destroy(() => res.json({ ok: true }));
 });
 
@@ -422,7 +448,11 @@ app.get('/api/friends', requireAuth, async (req, res) => {
 // 정적 프론트엔드
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.listen(PORT, () => {
+// 0.0.0.0 바인딩 — Render 는 컨테이너 밖에서 접속하므로 localhost 로 묶으면 안 된다.
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`게임 디사이더 웹 → ${BASE_URL}`);
-  if (!API_KEY) console.log('⚠️  .env 에 STEAM_API_KEY 가 없습니다.');
+  if (!API_KEY) console.log('⚠️  STEAM_API_KEY 가 없습니다. 게임/도전과제 조회가 전부 실패합니다.');
+  if (IS_DEPLOYED && !env.BASE_URL && !env.RENDER_EXTERNAL_URL) {
+    console.log('⚠️  BASE_URL 을 못 찾았습니다. Steam 로그인 후 localhost 로 되돌아가 실패합니다.');
+  }
 });
