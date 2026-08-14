@@ -1,6 +1,9 @@
 :root {
   color-scheme: dark;
 
+  /* 화면 높이. 기본은 뷰포트지만 디자인 캡처 시 ?h=1080 으로 고정할 수 있다 */
+  --vh: 100vh;
+
   /* Pen 캔버스(design/_pen/src/game-decider.pen)의 디자인 변수를 그대로 옮긴 것.
      캔버스에서 값을 바꾸면 여기만 고치면 된다 — 이름을 1:1로 맞춰뒀다. */
 
@@ -144,8 +147,16 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .steam-login:disabled { opacity: 0.6; cursor: wait; }
 
 /* ── 앱 셸 ── */
-.app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
-.lnb { background: var(--panel); border-right: 1px solid var(--line); padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; height: 100vh; }
+.app { display: grid; grid-template-columns: 260px 1fr; min-height: var(--vh); }
+/* 디자인 캡처 모드(?w=&h=) — 가로 삐져나옴 차단 + LNB 를 프레임 전체 높이로 */
+/* overflow 는 걸지 않는다 — Pencil 임포터가 클리핑 컨테이너를 통째로
+   래스터화해 .main 이 rectangle 한 장으로 들어온다 (2026-08-14 확인) */
+.app.capture > .lnb { position: static; height: auto; }
+/* 애니메이션이 걸린 요소는 임포터가 통째로 래스터화한다 — 캡처 중엔 끈다 */
+.capture, .capture *, .capture *::before, .capture *::after {
+  animation: none !important; transition: none !important;
+}
+.lnb { background: var(--panel); border-right: 1px solid var(--line); padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; height: var(--vh); }
 .brand { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
 .brand span { color: var(--accent); }
 
@@ -176,7 +187,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* ── 3D 커버플로우 슬롯 (주크박스) ── */
-.spin-view { display: flex; flex-direction: column; height: calc(100vh - 32px); gap: 6px; }
+.spin-view { display: flex; flex-direction: column; height: calc(var(--vh) - 32px); gap: 6px; }
 .spin-stage { position: relative; width: 100%; flex: 1; min-height: 360px; perspective: 1700px; perspective-origin: 50% 48%; overflow: hidden; background: radial-gradient(120% 90% at 50% 18%, var(--bg-glow), var(--bg)); border-radius: var(--r-xl); border: 1px solid var(--line); }
 .coverflow { position: absolute; inset: 0; transform-style: preserve-3d; }
 .cf-card { position: absolute; left: 50%; top: 50%; width: clamp(210px, 24vw, 380px); aspect-ratio: 2 / 3; border-radius: var(--r-lg); overflow: hidden; background: var(--panel2); border: 1px solid var(--line); box-shadow: 0 28px 54px rgba(0,0,0,.6); backface-visibility: hidden; will-change: transform; }
@@ -627,7 +638,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 /* 오늘의 도전은 화면 높이를 다 쓴다 — 덱이 남는 공간 한가운데 놓이도록 */
 /* 카드가 화면 위쪽에 붙어 있던 문제. 남는 세로 공간에서 가운데로 모은다.
    (덱에 flex-grow 가 없으므로 카드는 여전히 내용 높이를 지킨다) */
-#view-daily { display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 112px); }
+#view-daily { display: flex; flex-direction: column; justify-content: center; min-height: calc(var(--vh) - 112px); }
 #dailyContent { display: block; }
 @media (max-width: 900px) { .draw-card { max-width: none; flex: none; } }
 
@@ -774,7 +785,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 #view-spin { max-width: none; }
 .spin-view {
   display: flex; flex-direction: column; gap: 12px;
-  height: calc(100vh - 56px); margin: 0 -24px;
+  height: calc(var(--vh) - 56px); margin: 0 -24px;
 }
 .spin-view .spin-stage { flex: 1 1 auto; min-height: 0; }
 .spin-view .pick { flex: none; }

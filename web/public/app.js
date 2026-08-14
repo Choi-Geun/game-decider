@@ -1059,5 +1059,33 @@ function renderFriends(res) {
 }
 
 // ── 시작 ──────────────────────────────────────────────────────────
+// 디자인 캔버스 임포트용 뷰포트 고정.
+// Pen 내장 브라우저는 폭이 매번 달라(688~2400px) 같은 화면이 다른 breakpoint 로
+// 캡처된다. ?w=1920&h=1080 을 붙이면 표준 PC 크기로 고정된다.
+// 높이는 '최소'라서 내용이 길면 프레임이 늘어난다 — 잘리지 않게 하려는 것.
+(function captureViewport() {
+  const q = new URLSearchParams(location.search);
+  const w = parseInt(q.get('w'), 10);
+  const h = parseInt(q.get('h'), 10);
+  const okW = w >= 320 && w <= 3840;
+  const okH = h >= 400 && h <= 4320;
+  if (!okW && !okH) return;
+  if (okH) document.documentElement.style.setProperty('--vh', h + 'px');
+
+  for (const id of ['app', 'loginScreen']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.classList.add('capture'); // LNB 를 sticky 대신 전체 높이로 (스냅샷용)
+    if (okW) { el.style.width = w + 'px'; el.style.margin = '0 auto'; }
+  }
+  // 로그인 화면은 position:fixed 라 뷰포트를 통째로 먹는다 — 흐름 안으로 되돌린다
+  const login = document.getElementById('loginScreen');
+  if (login && okH) {
+    login.style.position = 'relative';
+    login.style.inset = 'auto';
+    login.style.height = h + 'px';
+  }
+})();
+
 applyI18n();
 refreshMe();
