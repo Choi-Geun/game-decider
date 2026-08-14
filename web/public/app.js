@@ -236,21 +236,42 @@ function setSyncing(on) {
   btn.disabled = on;
   btn.classList.toggle('is-syncing', on);
   btn.textContent = on ? t('syncing') : t('sync');
+  // syncing 이 바뀌면 '동기화 중에는 버튼을 보여준다' 조건도 다시 봐야 한다.
+  // 안 부르면 그 분기가 영원히 렌더되지 않는다(캐시가 있는 유저는 버튼이 계속 숨어 있었다).
+  updateSyncAffordance();
 }
-async function startSync(full) {
-  if (syncing) return;
-  setSyncing(true);
+
+// 실패 종료는 반드시 여기로 모은다. 전에는 네 곳에서 제각각 끝냈고, 그중
+// 한 곳은 정의되지 않은 함수(syncFailedWith)를 불러 ReferenceError 를 던졌다.
+// 그러면 setSyncing(false) 에 못 가서 syncing 이 영구히 true 로 남고,
+// 동기화 버튼·'지금 확인'이 전부 먹통이 되며 "동기화 중…" 가짜 화면이 고정됐다.
+function syncFailedWith(msg) {
+  syncFailed = true; // 상단바 알림 점·동기화 버튼이 이 값을 본다
   $('progress').classList.remove('hidden');
-  $('progress').textContent = full ? t('syncFull') : t('syncChecking');
+  $('progress').textContent = msg || t('syncFail');
+  setSyncing(false); // updateSyncAffordance 까지 여기서 이어진다
+}
+
+async function startSync(full, silent) {
+  if (syncing) return;
+  // 자동 동기화(주기·탭 복귀)는 조용해야 한다. 인자를 안 받던 탓에 호출부가 넘기던
+  // silent 가 버려져서, 20분마다 진행 텍스트가 뜨고 버튼이 비활성화됐다.
+  syncSilent = !!silent;
+  syncFailed = false; // 재시도하면 이전 실패 표시는 지운다
+  setSyncing(true);
+  $('progress').classList.toggle('hidden', syncSilent);
+  if (!syncSilent) $('progress').textContent = full ? t('syncFull') : t('syncChecking');
   try {
     const r = await fetch('/api/sync' + (full ? '?full=1' : ''), { method: 'POST' }).then((x) => x.json());
-    if (r.error) { $('progress').textContent = '❌ ' + r.error; setSyncing(false); return; }
+    if (r.error) return syncFailedWith('❌ ' + r.error);
     pollProgress();
-  } catch (e) { $('progress').textContent = t('syncFail'); setSyncing(false); }
+  } catch (e) { syncFailedWith(t('syncFail')); }
 }
 async function pollProgress() {
   let p;
-  try { p = await fetch('/api/sync/progress').then((r) => r.json()); } catch (e) { setSyncing(false); return; }
+  // 폴링이 끊긴 것도 실패다. 전에는 조용히 setSyncing(false) 만 해서
+  // 사용자에게 아무 표시도 남지 않았다.
+  try { p = await fetch('/api/sync/progress').then((r) => r.json()); } catch (e) { return syncFailedWith(t('syncFail')); }
   if (p.status === 'running') {
     const msg = p.total ? t('syncProgress', { done: p.done, total: p.total, name: p.name || '' }) : t('syncChecking');
     if (!syncSilent) $('progress').textContent = msg;
@@ -261,7 +282,7 @@ async function pollProgress() {
     const s = p.stats || {};
     let msg = s.fetched ? t('syncUpdated', { n: s.fetched }) : t('syncLatest');
     if (s.added) msg += ' · ' + t('syncNewGames', { n: s.added });
-    $('progress').textContent = msg;
+    if (!syncSilent) $('progress').textContent = msg;
     setSyncing(false);
     refreshMeLight();
     loadGames();
@@ -270,7 +291,14 @@ async function pollProgress() {
   else setSyncing(false);
 }
 async function refreshMeLight() {
-  try { state.me = await fetch('/api/me').then((r) => r.json()); renderProfile(); } catch (e) {}
+  let me;
+  try { me = await fetch('/api/me').then((r) => r.json()); } catch (e) { return; }
+  // 세션이 만료됐는데 그대로 갈아끼우면 renderProfile 이 첫 줄에서 되돌아가
+  // 프로필·알림 점이 낡은 채로 남고, 로그인 화면도 안 뜬 채 옛 데이터가 계속 보인다.
+  // 로그아웃 상태로 바뀌었으면 전체 경로로 넘겨 로그인 화면을 띄운다.
+  if (!me.loggedIn) { state.me = me; refreshMe(); return; }
+  state.me = me;
+  renderProfile();
 }
 $('sync').addEventListener('click', () => startSync(false));
 $('synced').addEventListener('click', () => startSync(false));
