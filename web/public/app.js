@@ -104,6 +104,7 @@ const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', a
 document.querySelectorAll('.lang-switch button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
 window.onLangChange = () => {
   renderProfile();
+  syncTopbar(); // 상단바 제목도 새 언어로
   renderView();
   if (state.detailAppid) openDetail(state.detailAppid); // 새 언어로 상세 재조회
   if (state.lastPick) showPick(state.lastPick); // 이유/제안 문구 새 언어로
@@ -216,11 +217,17 @@ let syncing = false, autoSetup = false, gamesLoadedOnce = false;
 // 실제로는 대부분의 방문에서 누를 일이 없다.
 // 다만 조용히 감추기만 하면 강제 동기화 수단이 사라지므로,
 // 프로필의 '동기화됨 …' 줄을 눌러 언제든 돌릴 수 있게 남겨둔다.
-function updateSyncAffordance() {
+// 캐시가 없거나 실패했다 = 사용자가 손을 써야 한다. 모바일 상단바의 알림 점도
+// 같은 조건을 봐야 한다 — 따로 쓰면 한쪽이 반드시 어긋난다.
+function syncNeedsAttention() {
   const me = state.me;
-  const needs = !me || !me.loggedIn ? false : (!me.hasCache || syncFailed);
+  return !me || !me.loggedIn ? false : (!me.hasCache || syncFailed);
+}
+function updateSyncAffordance() {
+  const needs = syncNeedsAttention();
   const btn = $('sync');
   if (btn) btn.classList.toggle('hidden', !(needs || syncing && !syncSilent));
+  syncTopbar(); // 아바타·알림 점도 같이 (모바일)
 }
 
 function setSyncing(on) {
@@ -301,6 +308,7 @@ function applyRoute() {
     if (appid) { if (state.detailAppid !== appid) openDetail(appid); }
     else closeDetail();
   }
+  syncTopbar(); // 모바일 상단바 제목 = 현재 화면 이름
   renderView();
 
   // 스핀 탭으로 처음 왔는데 아직 한 번도 안 돌았으면 1회 스핀
@@ -329,6 +337,7 @@ function renderView() {
   else if (state.view === 'games') renderGames();
   else if (state.view === 'ach') renderAch();
   else if (state.view === 'friends') renderFriendsIfLoaded();
+  // 페이드 재적용은 MutationObserver(queueFades)가 맡는다 — 렌더 경로마다 심지 않는다
 }
 
 // ── 이유 문구 생성기 (게임 상태 기반, 다양하게) ───────────────────
@@ -1112,7 +1121,17 @@ function renderDetail(appid, d) {
     recInner += `<div class="d-prog-bar"><i style="width:${ach.completionPct}%"></i></div>
       <div class="d-kv">${t('achCount', { u: ach.unlocked, t: ach.total })} · ${ach.completionPct}%</div>`;
     if (pr.lastAchievement) recInner += `<div class="d-kv">${t('dLastAch')}: <b>🏅 ${esc(pr.lastAchievement.name)}</b> <span style="color:var(--muted)">(${fmtDate(pr.lastAchievement.unlockTime)})</span></div>`;
-    recInner += `<div class="d-ach-cols" style="margin-top:12px"><div><div class="gh-sub">${t('dAchUnlocked')} (${unlocked.length})</div>${achListHtml(unlocked)}</div><div><div class="gh-sub">${t('dAchLocked')} (${locked.length})</div>${achListHtml(locked)}</div></div>`;
+    // 데스크톱은 좌우 두 컬럼, 모바일은 탭 하나씩. 330px 을 반으로 쪼개면 둘 다 못 읽는다.
+    // 두 리스트를 항상 그려두고 보이는 것만 바꾼다 — 탭을 눌러도 재조회가 없다.
+    // .dac-tabs 는 데스크톱에서 display:none 이라 그리드에 자리를 차지하지 않는다.
+    recInner += `<div class="d-ach-cols" style="margin-top:12px">
+      <div class="dac-tabs" role="tablist">
+        <button class="dac-tab active" role="tab" aria-selected="true" data-col="unlocked">${t('dAchUnlocked')} (${unlocked.length})</button>
+        <button class="dac-tab" role="tab" aria-selected="false" data-col="locked">${t('dAchLocked')} (${locked.length})</button>
+      </div>
+      <div class="dac-col on" data-col="unlocked"><div class="gh-sub">${t('dAchUnlocked')} (${unlocked.length})</div>${achListHtml(unlocked)}</div>
+      <div class="dac-col" data-col="locked"><div class="gh-sub">${t('dAchLocked')} (${locked.length})</div>${achListHtml(locked)}</div>
+    </div>`;
   } else {
     recInner += `<div class="gh-sub" style="margin-top:6px">${t('dNoAchShort')}</div>`;
   }
@@ -1248,6 +1267,110 @@ function renderFriends(res) {
   }).join('');
 }
 
+// ── 모바일 셸 ─────────────────────────────────────────────────────
+// 상단 한 줄 + 하단 탭바 4개 + 더보기 시트.
+// 탭바는 .nav-item 클래스를 그대로 쓴다 — 활성 표시(applyRoute)와 클릭 처리가
+// 이미 클래스 단위로 걸려 있어 라우팅 코드를 건드릴 필요가 없다.
+// 여기서 더하는 것은 네 가지뿐:
+//   (1) 상단바 제목·아바타·알림점 동기화  (2) 시트 열닫기
+//   (3) 가로 스크롤 끝 페이드            (4) 상세 달성/미달성 탭
+
+// 상단바 제목은 LNB 의 긴 이름을 쓴다. 탭 라벨은 짧은 별도 키(tab*)라서
+// 여기서 전체 이름을 보여주면 둘이 서로를 보완한다.
+const MOBILE_TITLE = {
+  daily: 'navDaily', spin: 'navSpin', resume: 'navResume',
+  games: 'navGames', ach: 'navAch', friends: 'navFriends',
+};
+
+function syncTopbar() {
+  const title = $('mTitle');
+  if (title) title.textContent = t(MOBILE_TITLE[state.view] || 'appTitle');
+  const av = $('mAvatar');
+  const src = $('avatar') ? $('avatar').getAttribute('src') : null;
+  // src 가 빈 문자열이면 브라우저가 '깨진 이미지' 아이콘을 그린다 — 아예 비운다
+  if (av) { if (src) av.src = src; else av.removeAttribute('src'); }
+  const dot = $('mMoreDot');
+  if (dot) dot.classList.toggle('hidden', !syncNeedsAttention());
+}
+
+// ── 더보기 시트 ──
+function sheetOpen() { const a = $('app'); return !!a && a.classList.contains('sheet-open'); }
+function setSheet(open) {
+  const app = $('app');
+  if (!app) return;
+  app.classList.toggle('sheet-open', open);
+  // 뒤 페이지가 같이 스크롤되면 시트가 딸려 올라간 것처럼 보인다.
+  // 단 캡처 모드는 프레임 전체가 길어져야 하므로 잠그지 않는다.
+  document.documentElement.classList.toggle('sheet-lock', open && !app.classList.contains('capture'));
+  const btn = $('mMore');
+  if (btn) btn.setAttribute('aria-expanded', String(open));
+}
+if ($('mMore')) $('mMore').addEventListener('click', () => setSheet(!sheetOpen()));
+if ($('sheetClose')) $('sheetClose').addEventListener('click', () => setSheet(false));
+if ($('sheetScrim')) $('sheetScrim').addEventListener('click', () => setSheet(false));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheetOpen()) setSheet(false); });
+// 시트에서 화면을 옮겼으면 시트는 닫힌다 — 안 닫으면 이동한 결과를 못 본다.
+// 언어 전환은 예외다(바뀐 걸 그 자리에서 확인해야 한다).
+if ($('lnbSheet')) $('lnbSheet').addEventListener('click', (e) => {
+  if (e.target.closest('.nav-item, .logout')) setSheet(false);
+});
+window.addEventListener('hashchange', () => setSheet(false));
+
+// ── 가로 스크롤 끝 페이드 ──
+// 스크롤바는 감추고 '더 있다'는 사실만 남긴다. 양끝 상태를 실제 scrollLeft 로
+// 판정한다 — 항상 깔아두면 끝까지 스크롤한 뒤에도 더 있다고 거짓말을 한다.
+const FADE_SEL = '.hscroll, .sort-bar, .subtabs, .tier-row';
+function updateFade(el) {
+  const max = el.scrollWidth - el.clientWidth;
+  const over = max > 2; // 반올림 오차만큼은 넘침으로 보지 않는다
+  el.classList.toggle('can-left', over && el.scrollLeft > 2);
+  el.classList.toggle('can-right', over && el.scrollLeft < max - 2);
+}
+function wireFades() {
+  const on = document.documentElement.classList.contains('mobile');
+  document.querySelectorAll(FADE_SEL).forEach((el) => {
+    el.classList.toggle('fade-x', on);
+    // 데스크톱으로 넓히면 흔적을 지운다 — 안 지우면 마스크 클래스가 남는다
+    if (!on) { el.classList.remove('can-left', 'can-right'); return; }
+    if (!el.dataset.fadeWired) {
+      el.dataset.fadeWired = '1';
+      el.addEventListener('scroll', () => updateFade(el), { passive: true });
+    }
+    updateFade(el);
+  });
+}
+// 가로 스크롤 줄은 여러 경로에서 새로 만들어진다 — renderView 뿐 아니라
+// loadDaily·dailyAction·loadCollection·등급 필터 클릭도 각자 렌더한다.
+// 호출을 일일이 심으면 한 곳을 빼먹는 순간 페이드가 조용히 사라진다
+// (실제로 loadDaily·loadCollection 경로가 그렇게 빠져 있었다: .hscroll 에 fade-x 미적용).
+// 그래서 '누가 렌더했는지' 대신 'DOM 이 바뀌었는지'를 본다.
+// 디바운스는 rAF 가 아니라 타이머로 한다. rAF 는 탭이 백그라운드거나 프레임이
+// 눌리면 안 불릴 수 있는데, '이미 예약됨' 플래그로 잠그면 그 한 번을 놓친 뒤
+// 영구히 멈춘다. clearTimeout+재예약은 놓쳐도 다음 변경에서 스스로 복구된다.
+let fadeTimer = 0;
+function queueFades() {
+  clearTimeout(fadeTimer);
+  fadeTimer = setTimeout(wireFades, 0);
+}
+// childList 만 관찰한다 — wireFades 는 클래스/데이터 속성만 건드리므로 자기 자신을 다시 부르지 않는다
+new MutationObserver(queueFades).observe(document.documentElement, { childList: true, subtree: true });
+// 폭이 바뀌면 넘침 여부가 바뀐다 (DOM 은 그대로라 관찰자가 못 잡는다)
+window.addEventListener('resize', wireFades);
+
+// 상세의 달성/미달성 탭 (모바일에서만 보인다)
+document.addEventListener('click', (e) => {
+  const tab = e.target.closest('.dac-tab');
+  if (!tab) return;
+  const box = tab.closest('.d-ach-cols');
+  if (!box) return;
+  box.querySelectorAll('.dac-tab').forEach((x) => {
+    const on = x === tab;
+    x.classList.toggle('active', on);
+    x.setAttribute('aria-selected', String(on));
+  });
+  box.querySelectorAll('.dac-col').forEach((c) => c.classList.toggle('on', c.dataset.col === tab.dataset.col));
+});
+
 // ── 시작 ──────────────────────────────────────────────────────────
 // 디자인 캔버스 임포트용 뷰포트 고정.
 // Pen 내장 브라우저는 폭이 매번 달라(688~2400px) 같은 화면이 다른 breakpoint 로
@@ -1276,6 +1399,10 @@ function renderFriends(res) {
     login.style.height = h + 'px';
   }
 })();
+
+// 시트가 열린 상태를 Pen 에 따로 임포트하려면 그 상태로 뜰 수 있어야 한다.
+// (?w=390&h=844&sheet=1) — capture 클래스가 붙은 뒤에 호출해야 스크롤 잠금이 안 걸린다.
+if (new URLSearchParams(location.search).get('sheet') === '1') setSheet(true);
 
 applyI18n();
 refreshMe();

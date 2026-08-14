@@ -16,6 +16,15 @@ const I18N = {
     navAch: '도전과제',
     navFriends: '친구랑',
     logout: '로그아웃',
+    // 모바일 셸. 탭 라벨은 별도 키다 — LNB 이름을 그대로 쓰면 폭이 안 맞아 말줄임이 된다.
+    // 전체 이름은 상단바 제목이 말해주므로 탭은 짧게 가도 뜻이 안 흐려진다.
+    openMenu: '메뉴 열기',
+    close: '닫기',
+    menuMore: '더보기',
+    tabDaily: '오늘',
+    tabResume: '이어하기',
+    tabGames: '내 게임',
+    tabAch: '도전과제',
     reroll: "다시 돌리기",
     play: '실행',
     searchGames: '게임 검색…',
@@ -216,6 +225,13 @@ const I18N = {
     navAch: 'Achievements',
     navFriends: 'With Friends',
     logout: 'Log out',
+    openMenu: 'Open menu',
+    close: 'Close',
+    menuMore: 'More',
+    tabDaily: 'Today',
+    tabResume: 'Resume',
+    tabGames: 'Games',
+    tabAch: 'Achievements',
     reroll: "Spin again",
     play: 'Play',
     searchGames: 'Search games…',
@@ -404,6 +420,8 @@ function applyI18n() {
   document.documentElement.lang = LANG;
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  // 아이콘 버튼(더보기·닫기)은 글자가 없어 aria-label 이 유일한 이름이다 — 이것도 번역한다
+  document.querySelectorAll('[data-i18n-label]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); });
   document.querySelectorAll('.lang-switch button').forEach((b) => b.classList.toggle('active', b.dataset.lang === LANG));
 }
 

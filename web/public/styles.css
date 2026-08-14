@@ -310,17 +310,11 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .ach-warn-link { display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: var(--r-md); background: var(--accent2); color: var(--on-accent); font-weight: 700; text-decoration: none; font-size: 13px; }
 .empty { color: var(--muted); font-size: 14px; padding: 20px 0; }
 
-/* ── 반응형 ── */
-@media (max-width: 780px) {
-  .app { grid-template-columns: 1fr; }
-  .lnb { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .lnb-nav { flex-direction: row; flex-wrap: wrap; margin: 0; }
-  .lnb-bottom { margin: 0 0 0 auto; flex-direction: row; }
-  .main { padding: 16px; }
-  .spin-view { height: auto; }
-  .spin-stage { height: 60vh; flex: none; }
-  .cf-card { width: clamp(120px, 42vw, 200px); }
-}
+/* ── 반응형 ──
+   모바일(≤780px)은 여기가 아니라 파일 끝의 "모바일 레이아웃" 절이 담당한다.
+   전에는 이 자리에서 LNB 를 상단으로 접기만 했는데, 그러면 첫 화면 위에
+   서비스명·프로필·탭 2줄·언어·로그아웃이 쌓여 콘텐츠가 시작조차 안 됐다.
+   데스크톱을 좁힌 게 아니라 모바일 구조를 따로 잡는 쪽으로 바꿨다. */
 
 /* ── 커버 이미지 폴백 ──────────────────────────────────────────────
    Steam CDN에 아트가 없는 게임(미출시·베타 등)용. 빈칸 대신 게임명을 보여준다.
@@ -945,3 +939,355 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .sync-panel h3 { margin: 4px 0 0; font-size: var(--fs-xl); font-weight: 800; }
 .sync-panel p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
 .sync-panel .sp-note { font-size: var(--fs-xs); opacity: .75; max-width: 460px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   모바일 레이아웃
+   ──────────────────────────────────────────────────────────────────
+   데스크톱을 좁힌 게 아니라 구조를 따로 잡는다. 이동은 하단 탭바 4개,
+   상단은 타이틀 한 줄, 계정/언어는 아바타 뒤 시트로.
+
+   ⚠️ 미디어쿼리가 아니라 html.mobile 클래스로 켠다.
+      디자인 캡처(?w=390)는 #app 폭만 좁히고 뷰포트는 그대로여서
+      @media (max-width) 가 걸리지 않는다 (index.html head 의 게이트 참조).
+      → 그래서 이 절의 규칙은 위쪽 다른 breakpoint(980/900/860/820/560px)에
+        의존하면 안 된다. 필요한 값은 전부 여기서 명시한다.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* iOS 홈 인디케이터 여백. 한 곳에서만 읽는다 —
+   세 군데에 env() 를 흩어 쓰면 값이 어긋나도 드러나지 않고,
+   테스트에서 --safe-b 를 덮어써 실제 캐스케이드로 검증할 수도 없다. */
+:root { --safe-b: env(safe-area-inset-bottom, 0px); }
+/* 탭바 실제 높이 = 내용 56px + 인디케이터 여백. 본문 하단 패딩이 이걸 넘어야
+   마지막 콘텐츠가 탭바 밑으로 숨지 않는다. */
+:root { --tabbar-h: calc(56px + var(--safe-b)); }
+
+/* 모바일 전용 크롬은 데스크톱에서 존재를 감춘다 */
+.mtopbar, .tabbar, .sheet-scrim, .sheet-head, .sheet-navlabel, .dac-tabs { display: none; }
+
+/* ── 셸 ── */
+.mobile .app { display: block; min-height: var(--vh); }
+.mobile .main {
+  display: block; padding: 12px 14px;
+  /* 하단 탭바(고정)에 콘텐츠가 가리지 않게. 마지막 카드가 탭바 밑으로 숨으면
+     스크롤 끝에 도달했는지 알 수 없다. */
+  padding-bottom: calc(var(--tabbar-h) + 20px);
+}
+.mobile .view { max-width: none; }
+
+/* 화면 이름은 상단바가 말한다 — 뷰 안의 제목은 같은 말을 두 번 하는 것 */
+.mobile #view-resume > h2,
+.mobile #gamesBrowse > h2,
+.mobile #view-ach > h2,
+.mobile #view-friends > h2 { display: none; }
+.mobile .view-lead { margin: 0 0 14px; }
+
+/* ── 상단바 — 한 줄 ── */
+.mobile .mtopbar {
+  display: flex; align-items: center; gap: 10px;
+  position: sticky; top: 0; z-index: 30;
+  height: 52px; padding: 0 8px 0 14px;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.mobile .mtb-logo { display: block; flex: none; }
+.mobile .mtb-title {
+  min-width: 0; flex: 1 1 auto;
+  font-size: var(--fs-md); font-weight: 700; letter-spacing: -.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mobile .mtb-more {
+  position: relative; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; padding: 0;
+  background: none; border: none; cursor: pointer; border-radius: var(--r-md);
+}
+.mobile .mtb-more:active { background: var(--chip); }
+.mobile .mtb-avatar { width: 32px; height: 32px; border-radius: var(--r-sm); background: var(--chip); display: block; }
+/* 동기화가 필요/실패면 시트가 닫혀 있어도 알려야 한다 — 아니면 조용히 고장난다 */
+.mobile .mtb-dot {
+  position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--gold); border: 2px solid var(--panel);
+}
+
+/* ── 하단 탭바 ── */
+.mobile .tabbar {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: var(--panel); border-top: 1px solid var(--border);
+  padding-bottom: var(--safe-b); /* iOS 홈 인디케이터 */
+}
+/* .nav-item 을 재사용하므로 LNB 용 생김새를 전부 되돌린다 */
+.mobile .tabbar .nav-item {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 56px; padding: 7px 2px; text-align: center;
+  background: none; border: none; border-radius: 0;
+  color: var(--text-muted); font-size: 11px; font-weight: 700; line-height: 1.2;
+}
+.mobile .tabbar .nav-item::before { content: none; display: none; } /* LNB 의 '>' 표식 */
+.mobile .tabbar .nav-item:hover { background: none; color: var(--text-muted); }
+.mobile .tabbar .nav-item.active { background: none; color: var(--accent); }
+/* 활성 표시는 색만으로 두지 않는다 — 상단에 짧은 막대를 같이 */
+.mobile .tabbar .nav-item.active::after {
+  content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 28px; height: 2px; background: var(--accent); border-radius: 0 0 2px 2px;
+}
+.mobile .tabbar .tab-ico { font-size: 17px; line-height: 1; }
+.mobile .tabbar .tab-label { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 더보기 시트 (= LNB) ──
+   프로필·동기화·언어·로그아웃·'친구랑'. 매 화면에 있을 이유가 없는 것들. */
+.mobile .lnb {
+  position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 41;
+  height: auto; max-height: 82vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 6px 16px calc(18px + var(--safe-b));
+  gap: 12px;
+  border-right: none; border-top: 1px solid var(--border-strong);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  box-shadow: 0 -18px 40px rgba(0, 0, 0, .5);
+  transform: translateY(101%); visibility: hidden;
+  transition: transform .22s cubic-bezier(.2, .8, .3, 1), visibility 0s linear .22s;
+}
+.mobile .app.sheet-open .lnb {
+  transform: none; visibility: visible;
+  transition: transform .22s cubic-bezier(.2, .8, .3, 1), visibility 0s linear 0s;
+}
+.mobile .sheet-scrim {
+  display: block; position: fixed; inset: 0; z-index: 40; background: var(--overlay);
+  opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility 0s linear .2s;
+}
+.mobile .app.sheet-open .sheet-scrim {
+  opacity: 1; visibility: visible; transition: opacity .2s ease, visibility 0s linear 0s;
+}
+/* 시트가 열려 있을 때 뒤 페이지가 같이 스크롤되면 시트가 딸려 올라간 것처럼 보인다 */
+.mobile.sheet-lock body { overflow: hidden; }
+
+.mobile .sheet-head { display: flex; align-items: center; justify-content: center; position: relative; height: 30px; }
+.mobile .sheet-grip { width: 38px; height: 4px; border-radius: var(--r-pill); background: var(--border-strong); }
+.mobile .sheet-close {
+  position: absolute; right: -6px; top: -2px; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 16px; line-height: 1;
+}
+.mobile .lnb .brand { display: none; } /* 상단바가 이미 로고를 들고 있다 */
+.mobile .profile { padding: 2px 0; }
+.mobile .avatar { width: 48px; height: 48px; }
+.mobile .pname { font-size: var(--fs-lg); }
+.mobile .synced { font-size: var(--fs-xs); }
+
+.mobile .lnb-nav { flex-direction: column; gap: 4px; margin-top: 2px; }
+.mobile .sheet-navlabel {
+  display: block; padding: 4px 0 2px;
+  font-size: 11px; font-weight: 800; letter-spacing: .08em;
+  color: var(--text-muted); text-transform: uppercase;
+}
+/* 하단 탭바에 이미 있는 항목은 시트에서 감춘다 — 같은 것을 두 군데 두지 않는다 */
+.mobile .lnb .nav-item.in-tabbar { display: none; }
+/* LNB 의 '>' 표식 자리(9+9px)와 좌측 패딩을 걷어낸다. 데스크톱에선 항목이 여럿이라
+   그 들여쓰기가 정렬을 만들지만, 시트엔 한 개뿐이라 혼자 밀려난 것처럼 보였다.
+   → 프로필·언어·로그아웃과 같은 왼쪽 선에 맞춘다. 패딩은 남겨 활성 배경이
+   글자에 달라붙지 않게 하고, 같은 만큼 음수 마진으로 당긴다. */
+.mobile .lnb .nav-item { min-height: 48px; font-size: var(--fs-lg); margin-left: -12px; margin-right: -12px; }
+.mobile .lnb .nav-item::before { content: none; display: none; }
+.mobile .lnb-bottom { margin-top: 8px; flex-direction: column; gap: 10px; }
+
+/* ── 터치 타깃 44px ──
+   지금 sort-btn(≈35px)·chip(≈31px)·rc-play(≈31px) 등이 미달이었다.
+   버튼은 글자를 세로 중앙에 두므로 min-height 만으로 충분하다. */
+.mobile .sort-btn, .mobile .subtab, .mobile .detail-back, .mobile .sync-btn,
+.mobile .logout, .mobile .tier-clear, .mobile .lang-switch button,
+.mobile .dc-check, .mobile .search, .mobile .es-btn, .mobile .ach-warn-link,
+.mobile .daily-reroll, .mobile .gt-more, .mobile .dac-tab { min-height: 44px; }
+/* 링크(a)는 블록이 아니면 min-height 가 안 먹는다 — 중앙정렬까지 같이 준다 */
+.mobile .rc-play, .mobile .tg-go, .mobile .dc-play, .mobile .d-play, .mobile .d-steam,
+.mobile .fg-play, .mobile .pick-play {
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ── 가로 스크롤 줄 (정렬·서브탭·등급·진열대) ──
+   스크롤바는 감추고, 더 있다는 사실은 끝의 페이드로 알린다.
+   ⚠️ 페이드는 JS 가 실제 스크롤 위치를 보고 can-scroll-* 클래스를 붙일 때만 켜진다.
+      항상 깔면 끝까지 스크롤한 뒤에도 "더 있다"고 거짓말을 한다. */
+.mobile .hscroll, .mobile .sort-bar, .mobile .subtabs, .mobile .tier-row {
+  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -ms-overflow-style: none;
+  /* 화면 폭을 꽉 쓰도록 .main 패딩을 상쇄 — 가장자리에서 잘려 보이지 않게 */
+  margin-left: -14px; margin-right: -14px;
+  padding-left: 14px; padding-right: 14px;
+}
+.mobile .hscroll::-webkit-scrollbar, .mobile .sort-bar::-webkit-scrollbar,
+.mobile .subtabs::-webkit-scrollbar, .mobile .tier-row::-webkit-scrollbar { display: none; }
+.mobile .sort-bar > *, .mobile .subtabs > *, .mobile .tier-row > * { flex: none; }
+
+.mobile .fade-x { --fade: 26px; }
+.mobile .fade-x.can-right {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent);
+}
+.mobile .fade-x.can-left {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade));
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fade));
+}
+.mobile .fade-x.can-left.can-right {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+}
+
+.mobile .sort-bar { margin-top: 0; margin-bottom: 14px; padding-bottom: 4px; }
+.mobile .subtabs { margin-bottom: 14px; padding-bottom: 4px; }
+.mobile .tier-row { margin-bottom: 16px; padding-bottom: 4px; gap: 10px; }
+.mobile .tier-tile { flex: 0 0 46%; min-width: 148px; }
+.mobile .hscroll { padding-top: 2px; padding-bottom: 10px; }
+
+/* ── 오늘의 도전 — 카드 3장 가로 스와이프 ──
+   세로로 쌓으면 3스크롤이 된다. '버린 두 장이 아까워야' 하는데 한 장씩
+   따로 보이면 비교가 안 돼 그 무게가 사라진다.
+   카드를 86% 폭으로 두어 다음 장이 항상 살짝 보이게 한다 — 페이드보다 정직한 신호다. */
+.mobile .draw-deck {
+  display: flex; flex-direction: row; align-items: stretch; justify-content: flex-start;
+  gap: 12px; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none;
+  margin: 0 -14px; padding: 2px 14px 10px;
+}
+.mobile .draw-deck::-webkit-scrollbar { display: none; }
+.mobile .draw-deck > .draw-card {
+  flex: 0 0 86%; width: auto; min-width: 0; max-width: none;
+  scroll-snap-align: center;
+}
+/* 한 장만 남은(고른 뒤) 상태는 스크롤할 게 없다 */
+.mobile .draw-deck.single { overflow-x: visible; scroll-snap-type: none; margin: 0; padding: 0; }
+.mobile .draw-deck.single > .draw-card { flex: 0 0 auto; width: 100%; }
+
+/* 헤더 아트는 460×215 다. 좁은 화면에서 554/360 으로 담으면 가로가 28% 잘린다. */
+.mobile .dc-art { aspect-ratio: 460 / 215; }
+.mobile .dc-art img, .mobile .dc-art .cover-fallback { object-fit: contain; background: var(--fallback-2); }
+.mobile .dc-body { padding: 16px 16px 14px; }
+.mobile .dc-ach { font-size: var(--fs-md); }
+.mobile .dc-pick { margin: auto 16px 16px; }
+.mobile .dc-actions { padding: 0 16px 16px; }
+.mobile .dc-alt { flex-wrap: wrap; gap: 10px; }
+.mobile .daily-foot { margin: 22px 0 4px; gap: 12px; }
+/* 세로 공간이 귀하다 — 데스크톱처럼 남는 높이에 가운데 정렬하지 않는다 */
+.mobile #view-daily { min-height: 0; justify-content: flex-start; }
+.mobile .done-banner { padding: 14px; gap: 12px; }
+.mobile .db-mark { font-size: 26px; }
+.mobile .db-ach { font-size: var(--fs-lg); }
+
+/* ── 이어하기 — 커버를 카드 상단 전체 폭으로 ──
+   208px + 1fr 좌우 분할은 390px 에서 둘 다 죽는다(커버도 작고 글도 좁다). */
+.mobile .resume-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.mobile .resume-card { display: block; }
+.mobile .resume-card .rc-cover {
+  width: 100%; height: auto; aspect-ratio: 460 / 215; object-fit: contain;
+  margin: 0; border-radius: 0;
+}
+.mobile .rc-body { padding: 14px; }
+/* 제목은 잘라내기보다 두 줄까지 흘린다. '멈춘 시점'은 아래 줄로 내린다 —
+   같은 줄에 두면 제목이 쓸 폭이 절반으로 줄어 거의 다 말줄임이 됐다. */
+.mobile .rc-head { flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-bottom: 8px; }
+.mobile .rc-name {
+  white-space: normal; font-size: var(--fs-md);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mobile .rc-when { flex: 1 0 100%; margin-left: 0; }
+
+/* ── 내 게임 — 2열 ── */
+.mobile .game-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.mobile .game-card .gc-body { padding: 8px; }
+.mobile .game-card .gc-name { font-size: var(--fs-xs); }
+.mobile .game-card .gc-meta, .mobile .game-card .gc-when { font-size: 10px; }
+.mobile .search { margin-bottom: 12px; }
+
+/* ── 도전과제 ── */
+.mobile .trophy-grid { grid-template-columns: 1fr; }
+.mobile .gcol-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.mobile .gcol-grid .gcol-card { width: auto; }
+.mobile .gt-grid { grid-template-columns: 1fr; }
+.mobile .almost-list { grid-template-columns: 1fr; }
+.mobile .target { gap: 10px; padding: 10px; }
+.mobile .tg-art, .mobile .target .cover-fallback { width: 72px; height: 34px; }
+.mobile .tg-pct { width: 44px; font-size: var(--fs-lg); }
+/* 왕관 카드(.crown-*)는 규칙을 두지 않는다 — app.js 에서 렌더하지 않는
+   죽은 CSS 라서(참조 0회) 모바일 규칙을 더하면 같이 헛돈다. */
+
+/* ── 게임 상세 ── */
+.mobile .game-detail { max-width: none; }
+.mobile .detail-hero img, .mobile .detail-hero .cover-fallback {
+  height: auto; aspect-ratio: 460 / 215; object-fit: contain; background: var(--fallback-2);
+}
+.mobile .detail-hero .dh-body { left: 12px; right: 12px; bottom: 10px; }
+.mobile .detail-hero h2 { font-size: var(--fs-xl); }
+.mobile .detail-meta { font-size: var(--fs-xs); gap: 4px 10px; }
+.mobile .detail-actions { gap: 8px; margin: 14px 0 18px; }
+/* .d-btn 은 렌더되지 않는다(참조 0회) — a 만 잡는다 */
+.mobile .detail-actions a { flex: 1 1 0; padding: 12px 10px; text-align: center; }
+.mobile .detail-grid { grid-template-columns: 1fr; gap: 12px; }
+.mobile .d-card { padding: 14px; }
+/* 지표 스트립 2×2 */
+.mobile .d-stat-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.mobile .d-stat { padding: 14px 10px 14px 14px; }
+.mobile .ds-value { font-size: 21px; }
+
+/* 달성/미달성은 좌우 컬럼이 아니라 탭으로. 330px 을 반으로 쪼개면 둘 다 못 읽는다. */
+.mobile .d-ach-cols { display: block; }
+.mobile .dac-tabs { display: flex; gap: 8px; margin: 0 0 10px; }
+.mobile .dac-tab {
+  flex: 1 1 0; padding: 8px 6px; border-radius: var(--r-md);
+  border: 1px solid var(--border); background: var(--chip);
+  color: var(--text-muted); font-family: var(--font-ui); font-size: var(--fs-xs); font-weight: 700;
+  cursor: pointer;
+}
+.mobile .dac-tab.active { background: var(--chip-active); border-color: var(--accent); color: var(--accent); }
+.mobile .d-ach-cols .dac-col { display: none; }
+.mobile .d-ach-cols .dac-col.on { display: block; }
+.mobile .d-ach-cols .dac-col > .gh-sub { display: none; } /* 탭 라벨과 같은 말 */
+.mobile .d-ach-list { max-height: 55vh; }
+
+/* ── 친구랑 — 1열 ── */
+.mobile .friend-grid { grid-template-columns: 1fr; gap: 10px; }
+.mobile .friend-game .fg-img {
+  width: 100%; height: auto; aspect-ratio: 460 / 215; object-fit: contain; background: var(--fallback-2);
+}
+.mobile .friend-game .fg-body { padding: 12px; }
+.mobile .friend-game .fg-top { flex-wrap: wrap; gap: 6px; }
+.mobile .friend-game .fg-name { font-size: var(--fs-md); }
+/* 실행 버튼은 제목 옆에 끼우지 않고 아래 한 줄을 통째로 — 엄지로 누르기 쉽게 */
+.mobile .friend-game .fg-play { margin: 10px 0 0; flex: 1 0 100%; }
+
+/* ── 랜덤 스핀 (탭에는 없지만 #spin 으로 들어올 수 있다) ── */
+.mobile .spin-view { height: auto; margin: 0; gap: 10px; }
+.mobile .spin-stage { height: 56vh; min-height: 300px; flex: none; }
+.mobile .cf-card { width: clamp(120px, 42vw, 200px); }
+.mobile .pick-name { font-size: var(--fs-2xl); }
+.mobile .pick-reason { font-size: var(--fs-md); }
+.mobile .spin-actions { flex-direction: column; gap: 10px; }
+.mobile .spin-actions .pick-play, .mobile .spin-actions .reroll { width: 100%; text-align: center; }
+
+/* ── 로그인 — 이미 세로 중앙 정렬이라 크게 손 안 댄다 ── */
+.mobile .login-box { padding: 24px 20px; width: 100%; }
+.mobile .steam-login { width: 100%; min-height: 52px; }
+
+/* ── 로딩 스켈레톤 — 실제 모바일 레이아웃과 같은 골격이어야 화면이 안 튄다 ── */
+.mobile .skel-deck {
+  gap: 12px; justify-content: flex-start; overflow-x: hidden;
+  margin: 0 -14px; padding: 2px 14px 10px;
+}
+.mobile .skel-deck .skel-card { flex: 0 0 86%; max-width: none; }
+.mobile .skel-deck .skel-art { aspect-ratio: 460 / 215; }
+.mobile .skel-row { flex-direction: column; gap: 10px; padding: 0 0 14px; }
+.mobile .skel-row .skel-cover { width: 100%; height: auto; aspect-ratio: 460 / 215; }
+.mobile .skel-row .skel-rest { padding: 0 14px; }
+
+/* ── 디자인 캡처 모드 (?w=390&h=844) ──
+   Pen 임포터는 뷰포트가 아니라 #app 을 프레임으로 잡는다. 고정(fixed) 요소는
+   프레임이 아니라 창 전체를 기준으로 놓여 프레임 밖으로 나가므로 흐름 안으로 되돌린다. */
+.mobile .app.capture .mtopbar { position: static; }
+.mobile .app.capture .tabbar { position: static; padding-bottom: 0; }
+.mobile .app.capture .main { padding-bottom: 18px; }
+.mobile .app.capture .sheet-scrim { display: none; }
+.mobile .app.capture .lnb { display: none; }
+/* ?sheet=1 → 시트 열린 상태를 따로 캡처 */
+.mobile .app.capture.sheet-open .lnb {
+  display: flex; position: static; transform: none; visibility: visible;
+  max-height: none; border-radius: 0; box-shadow: none;
+}
