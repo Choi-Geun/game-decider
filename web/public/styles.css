@@ -532,7 +532,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 
 /* 덱은 남는 높이 안에서 가운데. 다만 상한을 둔다 — 창이 아주 길면 카드가
    화면 한복판에 외따로 떠서 오히려 허전해진다. */
-.draw-deck { display: flex; gap: 28px; align-items: stretch; justify-content: center; flex: 1 1 auto; min-height: 0; }
+/* align-items:stretch 는 세 장의 키를 서로 맞추려는 것이지 화면 높이에 맞추려는 게 아니다.
+   덱이 flex:1 로 남는 세로 공간을 먹으면 stretch 가 카드를 창 높이까지 늘려버린다. */
+.draw-deck { display: flex; gap: 28px; align-items: stretch; justify-content: center; }
 .draw-deck.single .draw-card { width: 460px; height: auto; }
 
 .draw-card {
@@ -606,7 +608,8 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .db-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 @media (max-width: 900px) {
-  .draw-deck { flex-direction: column; }
+  .draw-deck { flex-direction: column; align-items: stretch; }
+  .draw-card { flex: none; }
 }
 
 /* 게임별 탭 — 가로 스크롤이 아니라 격자로 훑는다 */
@@ -614,9 +617,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .gcol-grid .gcol-card { width: auto; }
 
 /* 오늘의 도전은 화면 높이를 다 쓴다 — 덱이 남는 공간 한가운데 놓이도록 */
-#view-daily { display: flex; flex-direction: column; min-height: calc(100vh - 56px); }
-#dailyContent { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-@media (max-width: 900px) { #view-daily { min-height: 0; } .draw-card { max-width: none; } }
+#view-daily { display: block; }
+#dailyContent { display: block; }
+@media (max-width: 900px) { .draw-card { max-width: none; flex: none; } }
 
 .rg-sub { margin: -6px 0 12px; font-size: 12px; color: var(--muted); }
 
@@ -649,3 +652,11 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 
 /* 로그인 화면 언어 전환은 우상단에 조용히 */
 .corner-lang { position: fixed; top: 20px; right: 20px; z-index: 2; }
+
+/* 메뉴 표식 — 이모지 대신 모노 프롬프트. 로그인 화면의 `$` 와 같은 계열이다.
+   현재 위치를 '>' 로 가리키는 건 터미널에서 가장 익숙한 관용구이기도 하다. */
+.nav-item::before {
+  content: "/"; font-family: var(--font-mono); font-weight: 500;
+  color: var(--text-muted); opacity: .45; margin-right: 9px;
+}
+.nav-item.active::before { content: ">"; color: var(--accent); opacity: 1; }
