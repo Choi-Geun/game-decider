@@ -17,3 +17,4 @@ design/_pen/exports/**
 
 # 유저별 앱 상태 (뽑기·선택·기록)
 web/.state/
+web/public/*.tmp.js
