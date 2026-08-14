@@ -1384,6 +1384,10 @@ function queueFades() {
 new MutationObserver(queueFades).observe(document.documentElement, { childList: true, subtree: true });
 // 폭이 바뀌면 넘침 여부가 바뀐다 (DOM 은 그대로라 관찰자가 못 잡는다)
 window.addEventListener('resize', wireFades);
+// html.mobile 이 토글된 직후에도 다시 물린다. resize 는 미디어쿼리 평가보다
+// 먼저 돌기 때문에 위 리스너만으로는 경계를 넘는 그 한 번을 놓친다
+// (index.html 의 게이트가 이 훅을 부른다).
+window.onBreakpointChange = wireFades;
 
 // 상세의 달성/미달성 탭 (모바일에서만 보인다)
 document.addEventListener('click', (e) => {

@@ -957,6 +957,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
    세 군데에 env() 를 흩어 쓰면 값이 어긋나도 드러나지 않고,
    테스트에서 --safe-b 를 덮어써 실제 캐스케이드로 검증할 수도 없다. */
 :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+/* 가로 모드 노치. viewport-fit=cover 를 켠 순간 좌우도 우리 책임이 된다 —
+   안 쓰면 콘텐츠와 탭 버튼이 노치·둥근 모서리 아래로 들어간다. */
+:root { --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px); }
 /* 탭바 실제 높이 = 내용 56px + 인디케이터 여백. 본문 하단 패딩이 이걸 넘어야
    마지막 콘텐츠가 탭바 밑으로 숨지 않는다. */
 :root { --tabbar-h: calc(56px + var(--safe-b)); }
@@ -967,7 +970,8 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 /* ── 셸 ── */
 .mobile .app { display: block; min-height: var(--vh); }
 .mobile .main {
-  display: block; padding: 12px 14px;
+  display: block;
+  padding: 12px calc(14px + var(--safe-r)) 0 calc(14px + var(--safe-l));
   /* 하단 탭바(고정)에 콘텐츠가 가리지 않게. 마지막 카드가 탭바 밑으로 숨으면
      스크롤 끝에 도달했는지 알 수 없다. */
   padding-bottom: calc(var(--tabbar-h) + 20px);
@@ -985,7 +989,8 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .mobile .mtopbar {
   display: flex; align-items: center; gap: 10px;
   position: sticky; top: 0; z-index: 30;
-  height: 52px; padding: 0 8px 0 14px;
+  height: 52px;
+  padding: 0 calc(8px + var(--safe-r)) 0 calc(14px + var(--safe-l));
   background: var(--panel); border-bottom: 1px solid var(--border);
 }
 .mobile .mtb-logo { display: block; flex: none; }
@@ -1013,7 +1018,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   display: grid; grid-template-columns: repeat(4, 1fr);
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   background: var(--panel); border-top: 1px solid var(--border);
-  padding-bottom: var(--safe-b); /* iOS 홈 인디케이터 */
+  /* iOS 홈 인디케이터 + 가로 모드 노치. 탭바는 화면 끝까지 뻗으므로
+     inset 을 안 주면 탭 하나가 노치 아래로 들어간다. */
+  padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
 }
 /* .nav-item 을 재사용하므로 LNB 용 생김새를 전부 되돌린다 */
 .mobile .tabbar .nav-item {
@@ -1039,7 +1046,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .mobile .lnb {
   position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 41;
   height: auto; max-height: 82vh; overflow-y: auto; overscroll-behavior: contain;
-  padding: 6px 16px calc(18px + var(--safe-b));
+  padding: 6px calc(16px + var(--safe-r)) calc(18px + var(--safe-b)) calc(16px + var(--safe-l));
   gap: 12px;
   border-right: none; border-top: 1px solid var(--border-strong);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
@@ -1110,6 +1117,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
       항상 깔면 끝까지 스크롤한 뒤에도 "더 있다"고 거짓말을 한다. */
 .mobile .hscroll, .mobile .sort-bar, .mobile .subtabs, .mobile .tier-row {
   flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+  /* 끝에서 더 밀면 브라우저 뒤로가기 스와이프가 채간다 — 가로로 훑는 게
+     주 조작인 줄들이라 밟을 확률이 높다. 스크롤을 이 안에 가둔다. */
+  overscroll-behavior-x: contain;
   scrollbar-width: none; -ms-overflow-style: none;
   /* 화면 폭을 꽉 쓰도록 .main 패딩을 상쇄 — 가장자리에서 잘려 보이지 않게 */
   margin-left: -14px; margin-right: -14px;
@@ -1147,6 +1157,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   display: flex; flex-direction: row; align-items: stretch; justify-content: flex-start;
   gap: 12px; overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none;
+  /* 첫 카드에서 왼쪽으로 더 밀면 뒤로가기 제스처가 채간다. 카드 3장을 좌우로
+     훑는 게 이 화면의 주 조작이므로 반드시 가둔다. */
+  overscroll-behavior-x: contain;
   margin: 0 -14px; padding: 2px 14px 10px;
 }
 .mobile .draw-deck::-webkit-scrollbar { display: none; }
@@ -1241,7 +1254,11 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .mobile .d-ach-cols .dac-col { display: none; }
 .mobile .d-ach-cols .dac-col.on { display: block; }
 .mobile .d-ach-cols .dac-col > .gh-sub { display: none; } /* 탭 라벨과 같은 말 */
-.mobile .d-ach-list { max-height: 55vh; }
+/* 데스크톱은 달성/미달성을 좌우로 나란히 두느라 높이를 묶어야 했다(280px).
+   모바일은 탭으로 한 번에 하나만 보이므로 그 제한이 필요 없다 — 오히려
+   페이지 스크롤 안의 중첩 세로 스크롤이 되어, 손가락이 어디 있느냐에 따라
+   다른 게 스크롤되고 목록 안에 갇힌다. 풀어서 페이지가 스크롤되게 한다. */
+.mobile .d-ach-list { max-height: none; overflow-y: visible; }
 
 /* ── 친구랑 — 1열 ── */
 .mobile .friend-grid { grid-template-columns: 1fr; gap: 10px; }
