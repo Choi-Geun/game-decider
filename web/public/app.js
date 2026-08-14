@@ -31,6 +31,17 @@ function skelDeck() {
   return `<div class="skel-deck">${rep(3, `<div class="skel-card"><div class="skel skel-art"></div>
     <div class="skel-body">${skelLines(['w45', 'w90', 'w70'])}</div></div>`)}</div>`;
 }
+// 첫 동기화 중 화면. 몇 분 걸리므로 "얼마나 왔는지"가 보여야 기다릴 수 있다.
+// 진행 텍스트는 pollProgress 가 #syncPanelText 에 채운다.
+function syncingPanel() {
+  return `<div class="sync-panel">
+    <div class="gd-spinner"></div>
+    <h3>${esc(t('syncPanelTitle'))}</h3>
+    <p id="syncPanelText">${esc(t('syncChecking'))}</p>
+    <p class="sp-note">${esc(t('needSyncDesc'))}</p>
+  </div>${skelDeck()}`;
+}
+
 // 모양을 미리 알 수 없는 짧은 대기에만
 function loadNote(msg) {
   return `<div class="load-note"><span class="gd-spinner"></span>${esc(msg || t('loading'))}</div>`;
@@ -234,7 +245,10 @@ async function pollProgress() {
   let p;
   try { p = await fetch('/api/sync/progress').then((r) => r.json()); } catch (e) { setSyncing(false); return; }
   if (p.status === 'running') {
-    if (!syncSilent) $('progress').textContent = p.total ? t('syncProgress', { done: p.done, total: p.total, name: p.name || '' }) : t('syncChecking');
+    const msg = p.total ? t('syncProgress', { done: p.done, total: p.total, name: p.name || '' }) : t('syncChecking');
+    if (!syncSilent) $('progress').textContent = msg;
+    const panel = document.getElementById('syncPanelText');
+    if (panel) panel.textContent = msg;
     setTimeout(pollProgress, 1000);
   } else if (p.status === 'done') {
     const s = p.stats || {};
@@ -724,7 +738,9 @@ function renderDaily() {
   if (!box) return;
   if (!dailyData) { box.innerHTML = skelDeck(); loadDaily(); return; }
   if (dailyData.needsSync) {
-    box.innerHTML = emptyState(t('needSyncTitle'), t('needSyncDesc'),
+    // 이미 동기화가 돌고 있는데 "지금 가져오기" 버튼을 내밀면 안 된다 —
+    // 눌러도 아무 일이 없어 고장처럼 보인다. 도는 중이면 진행 상황을 보여준다.
+    box.innerHTML = (syncing || syncIsStale()) ? syncingPanel() : emptyState(t('needSyncTitle'), t('needSyncDesc'),
       `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
     return;
   }

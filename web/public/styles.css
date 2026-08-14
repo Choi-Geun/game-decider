@@ -936,3 +936,12 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 /* '동기화됨 …' 줄이 강제 동기화 수단 — 버튼이 숨겨져도 길은 남겨둔다 */
 .synced { cursor: pointer; }
 .synced:hover { color: var(--text-2); text-decoration: underline; }
+
+/* 첫 동기화 중 가운데 화면 — 몇 분 걸리므로 진행 상황이 보여야 기다릴 수 있다 */
+.sync-panel {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 32px 20px 26px; text-align: center;
+}
+.sync-panel h3 { margin: 4px 0 0; font-size: var(--fs-xl); font-weight: 800; }
+.sync-panel p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.sync-panel .sp-note { font-size: var(--fs-xs); opacity: .75; max-width: 460px; }
