@@ -836,15 +836,26 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .daily-alt { display: inline-block; margin-left: 12px; font-size: var(--fs-xs); color: var(--link); text-decoration: none; }
 .daily-alt:hover { text-decoration: underline; }
 
-/* ── 내 게임: 검색 + 정렬 툴바 ── */
-.games-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
-.games-toolbar .search { flex: 1 1 260px; margin-bottom: 0; }
-.sort-field { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; white-space: nowrap; }
-.sort-select {
-  padding: 11px 12px; border-radius: var(--r-md); border: 1px solid var(--line);
-  background: var(--panel2); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer;
+/* ── 내 게임: 검색 아래 정렬 버튼 바 ── */
+/* 드롭다운은 열어야 선택지를 알 수 있다. 버튼은 뭘 고를 수 있고 지금 뭐가
+   골라져 있는지가 동시에 보인다 — 축이 4개뿐이라 늘어놔도 안 넘친다. */
+.sort-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 20px; }
+.sort-bar-label { color: var(--text-muted); font-size: 12px; font-weight: 700; margin-right: 2px; }
+.sort-btn {
+  padding: 8px 14px; border-radius: var(--r-pill);
+  border: 1px solid var(--line); background: var(--chip);
+  color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: color .12s ease, border-color .12s ease, background .12s ease;
 }
-.sort-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sort-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.sort-btn.active {
+  background: var(--primary-dim); border-color: var(--accent);
+  color: var(--accent); font-weight: 700;
+}
+.sort-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 카드에 달성률과 마지막 플레이를 같이 싣는다 */
+.gc-when { margin-top: 6px; color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── 등급 타일을 필터 버튼으로 ── */
 /* 눌리는 것이면 눌리게 보여야 한다 — 커서·호버·선택 상태를 전부 준다 */

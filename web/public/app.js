@@ -58,7 +58,9 @@ document.addEventListener(
   true
 );
 
-const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'collected', lastPick: null, didInitialSpin: false };
+// gameSort 기본값이 '최근 플레이 순'인 이유: 라이브러리를 열 때 찾는 건
+// 보통 "요즘 뭐 하고 있었지"다. 총 플레이 시간 1위는 몇 년 전에 끝난 게임일 수 있다.
+const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'collected', lastPick: null, didInitialSpin: false, gameSort: 'recent', collTier: 'all' };
 
 // ── 언어 전환 ─────────────────────────────────────────────────────
 document.querySelectorAll('.lang-switch button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
@@ -428,9 +430,9 @@ const pctOf = (g) => (g.ach && g.ach.hasAchievements ? g.ach.completionPct : nul
 // 플레이 0분은 '안 켬'이라 뒤로 보낸다.
 const playOf = (g) => (g.playtimeMinutes ? g.playtimeMinutes : null);
 
+// 플레이 시간 정렬은 뺐다 — 라이브러리를 훑는 목적에는 '언제 했나'와
+// '얼마나 깼나'면 충분하고, 축이 많을수록 고르기만 어려워진다.
 const GAME_SORTS = {
-  'play-desc': (a, b) => nullLast(playOf(a), playOf(b), -1),
-  'play-asc': (a, b) => nullLast(playOf(a), playOf(b), 1),
   recent: (a, b) => nullLast(a.lastPlayed || null, b.lastPlayed || null, -1),
   oldest: (a, b) => nullLast(a.lastPlayed || null, b.lastPlayed || null, 1),
   'ach-desc': (a, b) => nullLast(pctOf(a), pctOf(b), -1),
@@ -439,27 +441,42 @@ const GAME_SORTS = {
 
 function renderGames() {
   const q = ($('gameSearch').value || '').toLowerCase();
-  const key = ($('gameSort') && $('gameSort').value) || 'play-desc';
+  const key = GAME_SORTS[state.gameSort] ? state.gameSort : 'recent';
   const list = state.games
     .filter((g) => g.name.toLowerCase().includes(q))
     .slice()
-    .sort(GAME_SORTS[key] || GAME_SORTS['play-desc']);
+    .sort(GAME_SORTS[key]);
   $('gameGrid').innerHTML = list.map((g) => {
-    const pct = g.ach && g.ach.completionPct;
+    const pct = pctOf(g);
     // 1시간 미만을 "0시간"으로 쓰면 안 켠 것처럼 보인다 — 그건 분으로 말한다
     const hours = !g.playtimeMinutes ? ''
       : g.playtimeMinutes < 60 ? g.playtimeMinutes + t('minutes')
       : Math.round(g.playtimeMinutes / 60) + t('hours');
-    // 정렬 기준으로 고른 값을 카드에도 보여준다 — 안 그러면 왜 이 순서인지 알 수 없다
-    const meta = key === 'recent' || key === 'oldest'
-      ? (g.lastPlayed ? fmtDate(g.lastPlayed) : t('dNever'))
-      : (pct != null ? t('completion', { pct }) : hours);
+    // 정렬 기준과 무관하게 둘 다 항상 보여준다. 정렬을 바꿀 때마다 값이
+    // 갈아끼워지면 두 게임을 비교할 수가 없다.
+    const line1 = [
+      pct != null ? t('completion', { pct }) : t('dNoAchShort'),
+      hours,
+    ].filter(Boolean).join(' · ');
+    const line2 = g.lastPlayed
+      ? `${t('dLastPlayed')} ${fmtDateTime(g.lastPlayed)}`
+      : t('dNever');
     const bar = pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : '';
-    return `<div class="game-card" data-appid="${g.appid}"><img src="${imgHeader(g)}" ${coverAttrs(g)}><div class="gc-body"><div class="gc-name">${esc(g.name)}</div><div class="gc-meta">${meta}</div>${bar}</div></div>`;
+    return `<div class="game-card" data-appid="${g.appid}"><img src="${imgHeader(g)}" ${coverAttrs(g)}>
+      <div class="gc-body"><div class="gc-name" title="${esc(g.name)}">${esc(g.name)}</div>
+        <div class="gc-meta">${line1}</div>${bar}
+        <div class="gc-when">${line2}</div></div></div>`;
   }).join('') || `<div class="empty">${t('emptyGroup')}</div>`;
 }
 $('gameSearch').addEventListener('input', renderGames);
-$('gameSort').addEventListener('change', renderGames);
+$('gameSort').addEventListener('click', (e) => {
+  const b = e.target.closest('.sort-btn');
+  if (!b) return;
+  state.gameSort = b.dataset.sort;
+  $('gameSort').querySelectorAll('.sort-btn').forEach((x) =>
+    x.classList.toggle('active', x === b));
+  renderGames();
+});
 $('gameGrid').addEventListener('click', (e) => {
   const card = e.target.closest('.game-card');
   if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);

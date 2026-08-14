@@ -94,18 +94,15 @@
       <section id="view-games" class="view hidden">
         <div id="gamesBrowse">
           <h2 data-i18n="navGames">내 게임</h2>
-          <div class="games-toolbar">
-            <input type="text" id="gameSearch" class="search" data-i18n-ph="searchGames" placeholder="게임 검색…" />
-            <label class="sort-field"><span data-i18n="sortLabel">정렬</span>
-              <select id="gameSort" class="sort-select">
-                <option value="play-desc" data-i18n="sortPlayDesc">플레이 많은 순</option>
-                <option value="play-asc" data-i18n="sortPlayAsc">플레이 적은 순</option>
-                <option value="recent" data-i18n="sortRecent">최근 플레이 순</option>
-                <option value="oldest" data-i18n="sortOldest">오래전 플레이 순</option>
-                <option value="ach-desc" data-i18n="sortAchDesc">달성률 높은 순</option>
-                <option value="ach-asc" data-i18n="sortAchAsc">달성률 낮은 순</option>
-              </select>
-            </label>
+          <input type="text" id="gameSearch" class="search" data-i18n-ph="searchGames" placeholder="게임 검색…" />
+          <!-- 정렬은 검색 바로 아래. 드롭다운은 열어봐야 뭐가 있는지 알지만
+               버튼은 선택지와 현재 상태가 한눈에 보인다. -->
+          <div class="sort-bar" id="gameSort" role="group" aria-label="정렬">
+            <span class="sort-bar-label" data-i18n="sortLabel">정렬</span>
+            <button class="sort-btn active" data-sort="recent" data-i18n="sortRecent">최근 플레이 순</button>
+            <button class="sort-btn" data-sort="oldest" data-i18n="sortOldest">오래전 플레이 순</button>
+            <button class="sort-btn" data-sort="ach-desc" data-i18n="sortAchDesc">달성률 높은 순</button>
+            <button class="sort-btn" data-sort="ach-asc" data-i18n="sortAchAsc">달성률 낮은 순</button>
           </div>
           <div id="gameGrid" class="game-grid"></div>
         </div>

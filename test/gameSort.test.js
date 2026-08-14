@@ -4,6 +4,7 @@
 // 맨 앞**에 왔다. 내림차순을 만들려고 비교 인자를 (b, a) 로 뒤집어 넘겼는데
 // null 처리까지 같이 뒤집힌 것이다. 방향은 dir 로만 주고 인자는 항상 (a, b).
 //
+// 플레이 시간 정렬은 삭제됨 — 남은 축은 마지막 플레이·달성률 넷.
 // 정렬 로직은 app.js 안에 있어(빌드 없는 순수 JS) 여기서는 같은 규칙을 복제해
 // 계약을 고정한다. app.js 쪽을 고치면 이 파일도 같이 고쳐야 한다.
 const test = require('node:test');
@@ -16,11 +17,8 @@ function nullLast(x, y, dir) {
   return dir > 0 ? x - y : y - x;
 }
 const pctOf = (g) => (g.ach && g.ach.hasAchievements ? g.ach.completionPct : null);
-const playOf = (g) => (g.playtimeMinutes ? g.playtimeMinutes : null);
 
 const SORTS = {
-  'play-desc': (a, b) => nullLast(playOf(a), playOf(b), -1),
-  'play-asc': (a, b) => nullLast(playOf(a), playOf(b), 1),
   recent: (a, b) => nullLast(a.lastPlayed || null, b.lastPlayed || null, -1),
   oldest: (a, b) => nullLast(a.lastPlayed || null, b.lastPlayed || null, 1),
   'ach-desc': (a, b) => nullLast(pctOf(a), pctOf(b), -1),
@@ -35,11 +33,6 @@ const FIXTURE = [
   { name: '도전과제없음', playtimeMinutes: 500, lastPlayed: 1650000000, ach: { hasAchievements: false } },
 ];
 const order = (key) => FIXTURE.slice().sort(SORTS[key]).map((g) => g.name);
-
-test('플레이 시간 — 많은 순 / 적은 순', () => {
-  assert.deepEqual(order('play-desc'), ['많이함', '도전과제없음', '조금함', '안켬']);
-  assert.deepEqual(order('play-asc'), ['조금함', '도전과제없음', '많이함', '안켬']);
-});
 
 test('마지막 플레이 — 최근 순 / 오래된 순', () => {
   assert.deepEqual(order('recent'), ['많이함', '도전과제없음', '조금함', '안켬']);
