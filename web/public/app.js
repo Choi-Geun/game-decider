@@ -123,9 +123,14 @@ async function loadGames() {
     const d = await fetch('/api/games').then((r) => r.json());
     state.games = d.games || [];
     state.achievementsBlocked = !!d.achievementsBlocked;
-    resumeData = null; // 동기화로 진행도가 바뀌었을 수 있으니 다시 계산시킨다
-    collectionData = null;
-    dailyData = null;  // 동기화가 곧 판정이다 — 고른 도전이 깨졌는지 여기서 드러난다
+    // 무효화는 '다시 동기화된 경우'에만. 최초 로드에서 지우면 방금 받은 데이터를
+    // 버리고 다시 받게 되어 화면이 두 번 그려진다(카드가 두 번 회전했다).
+    if (gamesLoadedOnce) {
+      resumeData = null; // 동기화로 진행도가 바뀌었을 수 있으니 다시 계산시킨다
+      collectionData = null;
+      dailyData = null;  // 동기화가 곧 판정이다 — 고른 도전이 깨졌는지 여기서 드러난다
+    }
+    gamesLoadedOnce = true;
   } catch (e) {}
   renderView();
   // 최초 1회만 자동 스핀 (동기화 후 재호출돼도 다시 안 돎)
@@ -136,7 +141,7 @@ async function loadGames() {
 }
 
 // ── 동기화 ────────────────────────────────────────────────────────
-let syncing = false, autoSetup = false;
+let syncing = false, autoSetup = false, gamesLoadedOnce = false;
 function setSyncing(on) {
   syncing = on;
   const btn = $('sync');
@@ -621,26 +626,22 @@ function renderDaily() {
   const shown = isPicked ? [cards[picked.index]] : cards;
 
   const syncedAt = state.me && state.me.updatedAt ? fmtDate(state.me.updatedAt) : null;
-  const head = `<div class="daily-head">
-    <h2>${t('dailyTitle')}</h2>
-    <span class="daily-stats">${t('statsDone', { n: stats.done || 0 })}</span>
-  </div>
-  <p class="view-lead">${isPicked ? t('dailyPickedLead') : t('dailyLead')}${
-    isPicked && syncedAt ? ` <span class="lead-note">${t('lastChecked', { date: syncedAt })}</span>` : ''
-  }</p>`;
+  const meta = [t('statsDone', { n: stats.done || 0 })];
+  if (isPicked && syncedAt) meta.push(t('lastChecked', { date: syncedAt }));
 
   const deck = `<div class="draw-deck${isPicked ? ' single' : ''}">
     ${shown.map((c, i) => drawCardHtml(c, isPicked ? picked.index : i, isPicked)).join('')}
   </div>`;
 
-  // 재뽑기는 하루 1회. 선택 전이면 '다시 뽑기', 선택 후면 '접고 다시 뽑기'.
-  const foot = rerollAvailable
-    ? `<div class="daily-foot"><button class="daily-reroll" data-act="${isPicked ? 'giveup' : 'reroll'}">
-        ${isPicked ? t('giveUpBtn') : t('rerollBtn')}</button></div>`
-    : `<div class="daily-foot">
-        <span class="daily-note">${t('rerollUsed')}</span>
-        <a class="daily-alt" href="#resume">${t('rerollUsedAlt')}</a>
-      </div>`;
+  // 설명 → 행동 → 상태 순으로 하단에 모은다. 재뽑기는 하루 1회.
+  const action = rerollAvailable
+    ? `<button class="daily-reroll" data-act="${isPicked ? 'giveup' : 'reroll'}">${isPicked ? t('giveUpBtn') : t('rerollBtn')}</button>`
+    : `<span class="daily-note">${t('rerollUsed')}<a class="daily-alt" href="#resume">${t('rerollUsedAlt')}</a></span>`;
+  const foot = `<div class="daily-foot">
+    <p class="daily-lead">${isPicked ? t('dailyPickedLead') : t('dailyLead')}</p>
+    ${action}
+    <div class="daily-meta">${meta.join(' · ')}</div>
+  </div>`;
 
   const recentHtml = recent.length
     ? `<section class="coll-block"><h3 class="cb-title">${t('recentDone')}</h3>
@@ -650,7 +651,7 @@ function renderDaily() {
         })).join('')}</div></section>`
     : '';
 
-  box.innerHTML = doneHtml + head + deck + foot + recentHtml;
+  box.innerHTML = doneHtml + deck + foot + recentHtml;
 }
 
 $('dailyContent').addEventListener('click', (e) => {
