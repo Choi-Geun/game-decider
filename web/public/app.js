@@ -322,7 +322,13 @@ function applyRoute() {
   const { view, param } = parseHash();
   state.view = view;
 
-  document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
+  // 활성 표시는 클래스(색·막대)만으로는 안 보이는 사람에게 전달되지 않는다.
+  // 모바일에서 탭바가 유일한 내비게이션이라 '지금 어디' 정보가 통째로 사라진다.
+  document.querySelectorAll('.nav-item').forEach((x) => {
+    const on = x.dataset.view === view;
+    x.classList.toggle('active', on);
+    if (on) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current');
+  });
   document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
   $('view-' + view).classList.remove('hidden');
 
@@ -1153,9 +1159,9 @@ function renderDetail(appid, d) {
     // 두 리스트를 항상 그려두고 보이는 것만 바꾼다 — 탭을 눌러도 재조회가 없다.
     // .dac-tabs 는 데스크톱에서 display:none 이라 그리드에 자리를 차지하지 않는다.
     recInner += `<div class="d-ach-cols" style="margin-top:12px">
-      <div class="dac-tabs" role="tablist">
-        <button class="dac-tab active" role="tab" aria-selected="true" data-col="unlocked">${t('dAchUnlocked')} (${unlocked.length})</button>
-        <button class="dac-tab" role="tab" aria-selected="false" data-col="locked">${t('dAchLocked')} (${locked.length})</button>
+      <div class="dac-tabs">
+        <button class="dac-tab active" aria-pressed="true" data-col="unlocked">${t('dAchUnlocked')} (${unlocked.length})</button>
+        <button class="dac-tab" aria-pressed="false" data-col="locked">${t('dAchLocked')} (${locked.length})</button>
       </div>
       <div class="dac-col on" data-col="unlocked"><div class="gh-sub">${t('dAchUnlocked')} (${unlocked.length})</div>${achListHtml(unlocked)}</div>
       <div class="dac-col" data-col="locked"><div class="gh-sub">${t('dAchLocked')} (${locked.length})</div>${achListHtml(locked)}</div>
@@ -1317,21 +1323,65 @@ function syncTopbar() {
   const src = $('avatar') ? $('avatar').getAttribute('src') : null;
   // src 가 빈 문자열이면 브라우저가 '깨진 이미지' 아이콘을 그린다 — 아예 비운다
   if (av) { if (src) av.src = src; else av.removeAttribute('src'); }
+  const needs = syncNeedsAttention();
   const dot = $('mMoreDot');
-  if (dot) dot.classList.toggle('hidden', !syncNeedsAttention());
+  if (dot) dot.classList.toggle('hidden', !needs);
+  // 점은 9px 금색 동그라미 하나다 — 모양과 색만으로는 안 보이는 사람에게
+  // 아무 말도 하지 않는다. 버튼 이름에 상태를 실어준다.
+  const btn = $('mMore');
+  if (btn) btn.setAttribute('aria-label', needs ? t('openMenuSyncNeeded') : t('openMenu'));
 }
 
 // ── 더보기 시트 ──
 function sheetOpen() { const a = $('app'); return !!a && a.classList.contains('sheet-open'); }
+// 시트 밖에서 초점이 돌아다니면 안 되는 것들. 탭바가 DOM 상 main 뒤에 있어서
+// 로그아웃 다음으로 Tab 하면 안 보이는 스크림 뒤의 탭으로 들어가, 누르면
+// 시트가 열린 채 화면이 바뀌었다. inert 는 초점과 접근성 트리를 한 번에 막는다.
+const SHEET_BACKDROP = ['.mtopbar', '.main', '.tabbar'];
+let sheetReturnFocus = null;
+
 function setSheet(open) {
   const app = $('app');
   if (!app) return;
+  const sheet = $('lnbSheet');
+  const isMobile = document.documentElement.classList.contains('mobile');
   app.classList.toggle('sheet-open', open);
   // 뒤 페이지가 같이 스크롤되면 시트가 딸려 올라간 것처럼 보인다.
   // 단 캡처 모드는 프레임 전체가 길어져야 하므로 잠그지 않는다.
   document.documentElement.classList.toggle('sheet-lock', open && !app.classList.contains('capture'));
   const btn = $('mMore');
   if (btn) btn.setAttribute('aria-expanded', String(open));
+
+  // 모달 역할은 '모바일에서 열려 있을 때'만 사실이다. 데스크톱 LNB 는 상시
+  // 노출이라 aria-modal 을 달면 바깥을 못 읽는 것처럼 알려 오히려 해롭다.
+  const modal = open && isMobile;
+  if (sheet) {
+    if (modal) {
+      sheet.setAttribute('role', 'dialog');
+      sheet.setAttribute('aria-modal', 'true');
+      sheet.setAttribute('aria-label', t('menuMore'));
+    } else {
+      sheet.removeAttribute('role');
+      sheet.removeAttribute('aria-modal');
+      sheet.removeAttribute('aria-label');
+    }
+  }
+  for (const sel of SHEET_BACKDROP) {
+    const el = document.querySelector(sel);
+    if (el) el.inert = modal;
+  }
+
+  if (modal) {
+    sheetReturnFocus = document.activeElement;
+    const first = $('sheetClose');
+    if (first) first.focus();
+  } else if (sheetReturnFocus) {
+    // visibility:hidden 이 걸리면 시트 안에 있던 초점이 body 로 떨어져,
+    // 키보드 사용자는 문서 맨 위부터 Tab 을 다시 해야 했다.
+    const back = sheetReturnFocus;
+    sheetReturnFocus = null;
+    if (back.isConnected && !back.inert) back.focus();
+  }
 }
 if ($('mMore')) $('mMore').addEventListener('click', () => setSheet(!sheetOpen()));
 if ($('sheetClose')) $('sheetClose').addEventListener('click', () => setSheet(false));
@@ -1387,7 +1437,12 @@ window.addEventListener('resize', wireFades);
 // html.mobile 이 토글된 직후에도 다시 물린다. resize 는 미디어쿼리 평가보다
 // 먼저 돌기 때문에 위 리스너만으로는 경계를 넘는 그 한 번을 놓친다
 // (index.html 의 게이트가 이 훅을 부른다).
-window.onBreakpointChange = wireFades;
+window.onBreakpointChange = () => {
+  wireFades();
+  // 데스크톱으로 넘어가면 '시트'라는 개념이 없어진다 —
+  // inert·스크롤락·모달 속성을 걷지 않으면 화면이 잠긴 채로 남는다.
+  if (sheetOpen()) setSheet(false);
+};
 
 // 상세의 달성/미달성 탭 (모바일에서만 보인다)
 document.addEventListener('click', (e) => {
@@ -1395,10 +1450,13 @@ document.addEventListener('click', (e) => {
   if (!tab) return;
   const box = tab.closest('.d-ach-cols');
   if (!box) return;
+  // role="tab" 은 쓰지 않는다. 그 역할은 화살표키 이동과 연결된 tabpanel 을
+  // 약속하는데 둘 다 없어서, 역할만 달면 일반 버튼보다 오히려 오해를 준다.
+  // 누름 상태를 가진 토글 버튼이 지금 동작과 정확히 일치한다.
   box.querySelectorAll('.dac-tab').forEach((x) => {
     const on = x === tab;
     x.classList.toggle('active', on);
-    x.setAttribute('aria-selected', String(on));
+    x.setAttribute('aria-pressed', String(on));
   });
   box.querySelectorAll('.dac-col').forEach((c) => c.classList.toggle('on', c.dataset.col === tab.dataset.col));
 });

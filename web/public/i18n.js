@@ -19,6 +19,7 @@ const I18N = {
     // 모바일 셸. 탭 라벨은 별도 키다 — LNB 이름을 그대로 쓰면 폭이 안 맞아 말줄임이 된다.
     // 전체 이름은 상단바 제목이 말해주므로 탭은 짧게 가도 뜻이 안 흐려진다.
     openMenu: '메뉴 열기',
+    openMenuSyncNeeded: '메뉴 열기 · 동기화가 필요해요',
     close: '닫기',
     menuMore: '더보기',
     tabDaily: '오늘',
@@ -226,6 +227,7 @@ const I18N = {
     navFriends: 'With Friends',
     logout: 'Log out',
     openMenu: 'Open menu',
+    openMenuSyncNeeded: 'Open menu · sync needed',
     close: 'Close',
     menuMore: 'More',
     tabDaily: 'Today',

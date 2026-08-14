@@ -925,6 +925,14 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 @media (prefers-reduced-motion: reduce) {
   .skel { animation: none; }
   .gd-spinner { animation-duration: 2.4s; }
+  /* 화면 전환 페이드는 모바일에서 탭을 누를 때마다 돈다 */
+  .view { animation: none; }
+  /* 시트 슬라이드. 선택자를 .mobile .lnb 로 맞춰야 원 규칙(0,2,0)을 덮는다.
+     visibility 는 살려둔다 — 즉시 hidden 이 되어야 닫힌 시트가 탭 순서에서 빠진다. */
+  .mobile .lnb, .mobile .app.sheet-open .lnb { transition: visibility 0s; }
+  .mobile .sheet-scrim, .mobile .app.sheet-open .sheet-scrim { transition: visibility 0s; }
+  .draw-card { animation: none; }
+  .done-banner { animation: none; }
 }
 
 /* '동기화됨 …' 줄이 강제 동기화 수단 — 버튼이 숨겨져도 길은 남겨둔다 */
@@ -994,8 +1002,9 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   background: var(--panel); border-bottom: 1px solid var(--border);
 }
 .mobile .mtb-logo { display: block; flex: none; }
+/* h1 이지만 크기는 상단바에 맞춘다 — 제목 계층은 의미용이고 생김새는 그대로 */
 .mobile .mtb-title {
-  min-width: 0; flex: 1 1 auto;
+  min-width: 0; flex: 1 1 auto; margin: 0;
   font-size: var(--fs-md); font-weight: 700; letter-spacing: -.2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
