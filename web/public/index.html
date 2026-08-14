@@ -12,7 +12,14 @@
 <body>
   <!-- 로그인 화면 -->
   <!-- 로그인 여부는 서버 쿠키라 파싱 시점엔 알 수 없다. 둘 다 숨겨두고
-       /api/me 응답 뒤에 하나만 연다 — 안 그러면 새로고침마다 로그인 화면이 번쩍인다. -->
+       /api/me 응답 뒤에 하나만 연다 — 안 그러면 새로고침마다 로그인 화면이 번쩍인다.
+       그 사이를 비워두면 흰 화면이 첫인상이 되므로 스플래시를 깐다. -->
+  <div id="boot">
+    <div class="boot-mark">▚ 오늘 뭐 깨지</div>
+    <div class="gd-spinner"></div>
+    <div class="boot-sub" data-i18n="bootLoading">불러오는 중…</div>
+  </div>
+
   <div id="loginScreen" class="login-screen hidden">
     <div class="corner-lang lang-switch" id="langSwitchLogin">
       <button data-lang="ko">한국어</button><button data-lang="en">English</button>

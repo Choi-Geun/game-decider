@@ -10,6 +10,32 @@ function fmtDate(unix) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// ── 로딩 표시 ─────────────────────────────────────────────────────
+// 스켈레톤을 기본으로 쓴다. 스피너 하나만 돌리면 뭐가 올지 모르고, 다 받은 뒤
+// 레이아웃이 튄다. 올 모양을 미리 그려두면 기다림이 짧게 느껴지고 튐도 없다.
+const rep = (n, s) => Array.from({ length: n }, () => s).join('');
+const skelLines = (ws) => ws.map((w) => `<div class="skel skel-line ${w}"></div>`).join('');
+
+// 그리드형(내 게임·트로피·친구) — 카드 n장
+function skelGrid(n, cls) {
+  return `<div class="${cls}">${rep(n, `<div class="skel-card"><div class="skel skel-art"></div>
+    <div class="skel-body">${skelLines(['w70', 'w45'])}</div></div>`)}</div>`;
+}
+// 가로로 긴 행형(이어하기)
+function skelRows(n) {
+  return rep(n, `<div class="skel-row"><div class="skel skel-cover"></div>
+    <div class="skel-rest">${skelLines(['w45', 'w90', 'w70'])}</div></div>`);
+}
+// 오늘의 도전 3장
+function skelDeck() {
+  return `<div class="skel-deck">${rep(3, `<div class="skel-card"><div class="skel skel-art"></div>
+    <div class="skel-body">${skelLines(['w45', 'w90', 'w70'])}</div></div>`)}</div>`;
+}
+// 모양을 미리 알 수 없는 짧은 대기에만
+function loadNote(msg) {
+  return `<div class="load-note"><span class="gd-spinner"></span>${esc(msg || t('loading'))}</div>`;
+}
+
 // 날짜 + 시각. Steam 은 초 단위 unix 를 주므로 분까지만 쓴다.
 // "언제 했더라"에는 날짜만으론 부족하고, 초까지는 아무도 안 본다.
 function fmtDateTime(unix) {
@@ -103,6 +129,9 @@ async function refreshMe() {
   // 실패해도 반드시 둘 중 하나는 열어야 한다. 그냥 return 하면 흰 화면이 남는다.
   try { me = await fetch('/api/me').then((r) => r.json()); } catch (e) { me = { loggedIn: false }; }
   state.me = me;
+  // 스플래시는 성패와 무관하게 반드시 걷는다 — 남으면 앱 전체가 가려진다
+  const boot = $('boot');
+  if (boot) boot.remove();
   if (!me.loggedIn) {
     $('loginScreen').classList.remove('hidden');
     $('app').classList.add('hidden');
@@ -440,6 +469,8 @@ const GAME_SORTS = {
 };
 
 function renderGames() {
+  // 아직 못 받았을 뿐인데 "게임이 없어요"라고 하면 거짓말이다.
+  if (!gamesLoadedOnce) { $('gameGrid').innerHTML = skelGrid(8, 'game-grid'); return; }
   const q = ($('gameSearch').value || '').toLowerCase();
   const key = GAME_SORTS[state.gameSort] ? state.gameSort : 'recent';
   const list = state.games
@@ -567,7 +598,7 @@ function resumeCardHtml(c, isActive) {
 function renderResume() {
   const box = $('resumeContent');
   if (!box) return;
-  if (!resumeData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadResume(); return; }
+  if (!resumeData) { box.innerHTML = skelRows(3); loadResume(); return; }
 
   const { active = [], dropped = [], droppedTotal = 0 } = resumeData;
   if (!active.length && !dropped.length) {
@@ -676,7 +707,7 @@ function drawCardHtml(c, i, picked) {
 function renderDaily() {
   const box = $('dailyContent');
   if (!box) return;
-  if (!dailyData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadDaily(); return; }
+  if (!dailyData) { box.innerHTML = skelDeck(); loadDaily(); return; }
   if (dailyData.needsSync) {
     box.innerHTML = emptyState(t('needSyncTitle'), t('needSyncDesc'),
       `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
@@ -834,7 +865,7 @@ function gameTrophyCard(g, mode) {
 }
 
 function renderCollected(box) {
-  if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
+  if (!collectionData) { box.innerHTML = skelGrid(6, 'gt-grid'); loadCollection(); return; }
 
   const { counts, crown, games, harvest } = collectionData;
   // crown(최고 기록 하나를 크게)은 뺐다 — 게임 하나가 화면 위를 다 먹어서
@@ -889,7 +920,7 @@ function renderCollected(box) {
 
 // '노릴 것' 탭 — 미달성 = 사냥감. '모은 것'과 정확히 반대 축이다.
 function renderTargets(box) {
-  if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
+  if (!collectionData) { box.innerHTML = skelGrid(6, 'gt-grid'); loadCollection(); return; }
   const { counts, nextTargets, almostDone, games } = collectionData;
 
   // 1) 가까운 후보 — 남은 전설 중 가장 손에 닿는 것들
@@ -957,7 +988,9 @@ async function openDetail(appid) {
   $('gamesBrowse').classList.add('hidden');
   const box = $('gameDetail');
   box.classList.remove('hidden');
-  box.innerHTML = `<button class="detail-back" id="detailBack">${t('back')}</button><div class="empty">${t('loading')}</div>`;
+  box.innerHTML = `<button class="detail-back" id="detailBack">${t('back')}</button>` +
+    `<div class="skel skel-art" style="aspect-ratio:1000/300;border-radius:var(--r-lg)"></div>` +
+    `<div style="margin-top:18px">${skelLines(['w45','w90','w70'])}</div>` + loadNote();
   $('detailBack').onclick = () => navigate('games');
   const key = appid + '_' + LANG;
   let data = detailCache[key];
@@ -1111,7 +1144,7 @@ $('achContent').addEventListener('click', (e) => {
 // '게임별' 탭 — 수집 현황(전설/희귀 개수)과 진행률을 한 카드에. 누르면 게임 상세로.
 // 예전에는 아코디언으로 도전과제를 펼쳤지만, 상세 페이지가 그걸 더 잘 보여준다.
 function renderAchByGame(box) {
-  if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
+  if (!collectionData) { box.innerHTML = skelGrid(6, 'gt-grid'); loadCollection(); return; }
   const games = collectionData.games || [];
   if (!games.length) { box.innerHTML = `<div class="empty">${t('gameShelfEmpty')}</div>`; return; }
   box.innerHTML = `<p class="cb-lead">${t('gameShelfLead')}</p>
@@ -1140,6 +1173,8 @@ async function loadFriends() {
   friendLoading = true;
   $('friendProgress').classList.remove('hidden');
   $('friendProgress').textContent = t('friendChecking');
+  // 친구 조회는 친구 수만큼 순차 호출이라 제일 오래 걸린다 — 빈 화면으로 두지 않는다
+  $('friendList').innerHTML = skelGrid(4, 'friend-grid');
   try { friendData = await fetch('/api/friends').then((r) => r.json()); renderFriends(friendData); }
   catch (e) { $('friendProgress').textContent = t('friendFail'); }
   friendLoading = false;
