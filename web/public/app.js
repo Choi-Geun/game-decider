@@ -10,6 +10,14 @@ function fmtDate(unix) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// 날짜 + 시각. Steam 은 초 단위 unix 를 주므로 분까지만 쓴다.
+// "언제 했더라"에는 날짜만으론 부족하고, 초까지는 아무도 안 본다.
+function fmtDateTime(unix) {
+  if (!unix) return '';
+  const d = new Date(unix * 1000);
+  return `${fmtDate(unix)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // ── 커버 이미지 폴백 ──────────────────────────────────────────────
 // 이미지 URL은 appid로 조립할 뿐 검증하지 않는다. 미출시·베타 타이틀은 Steam CDN에
 // 아트가 아예 없어서(portrait/header 모두 404) 그냥 두면 빈칸이 남는다.
@@ -90,7 +98,8 @@ $('logout').addEventListener('click', async () => { await fetch('/auth/logout', 
 // ── 로그인 상태 / 프로필 ──────────────────────────────────────────
 async function refreshMe() {
   let me;
-  try { me = await fetch('/api/me').then((r) => r.json()); } catch (e) { return; }
+  // 실패해도 반드시 둘 중 하나는 열어야 한다. 그냥 return 하면 흰 화면이 남는다.
+  try { me = await fetch('/api/me').then((r) => r.json()); } catch (e) { me = { loggedIn: false }; }
   state.me = me;
   if (!me.loggedIn) {
     $('loginScreen').classList.remove('hidden');
@@ -104,10 +113,23 @@ async function refreshMe() {
   await loadGames();
   if (!autoSetup) {
     autoSetup = true;
-    startSync(false);
-    setInterval(() => startSync(false), 20 * 60 * 1000);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') startSync(false); });
+    // 새로고침할 때마다 동기화하면 매번 40초를 기다리고 Steam API 도 그만큼 때린다.
+    // 캐시가 없을 때만 즉시 받고, 있으면 낡았을 때만 갱신한다.
+    if (syncIsStale()) startSync(false);
+    setInterval(() => { if (syncIsStale()) startSync(false); }, 20 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && syncIsStale()) startSync(false);
+    });
   }
+}
+
+// 캐시가 아예 없으면 무조건 받아야 한다. 있으면 이 시간이 지나야 다시 받는다.
+const SYNC_TTL_SEC = 6 * 60 * 60;
+function syncIsStale() {
+  const me = state.me;
+  if (!me || !me.loggedIn) return false;
+  if (!me.hasCache || !me.updatedAt) return true;
+  return Math.floor(Date.now() / 1000) - me.updatedAt > SYNC_TTL_SEC;
 }
 
 function renderProfile() {
@@ -129,6 +151,9 @@ async function loadGames() {
       resumeData = null; // 동기화로 진행도가 바뀌었을 수 있으니 다시 계산시킨다
       collectionData = null;
       dailyData = null;  // 동기화가 곧 판정이다 — 고른 도전이 깨졌는지 여기서 드러난다
+      // 상세도 지운다. 안 지우면 동기화 전에 progress:null 로 받은 응답이 세션 내내
+      // 재사용돼서, "동기화하기"를 눌러 실제로 받아와도 화면이 그대로 비어 있다.
+      for (const k of Object.keys(detailCache)) delete detailCache[k];
     }
     gamesLoadedOnce = true;
   } catch (e) {}
@@ -388,19 +413,53 @@ $('reroll').addEventListener('click', doReroll);
 window.addEventListener('resize', () => { if (state.view === 'spin' && cardEls.length && !$('reroll').disabled) layoutStatic(); });
 
 // ── 내 게임 ───────────────────────────────────────────────────────
+// 정렬 기준. '없음'(플레이 0·미달성)은 어느 방향이든 뒤로 보낸다 —
+// 오름차순에서 안 켠 게임 수십 개가 앞을 다 막으면 정렬한 의미가 없다.
+// dir: 1 오름차순, -1 내림차순. **인자 순서는 항상 (a, b)** — 뒤집어 넘기면
+// null 처리까지 같이 뒤집혀서 "값 없음"이 맨 앞으로 온다(실제로 한 번 그랬다).
+function nullLast(x, y, dir) {
+  if (x == null && y == null) return 0;
+  if (x == null) return 1;   // 값 없는 쪽은 방향과 무관하게 항상 뒤로
+  if (y == null) return -1;
+  return dir > 0 ? x - y : y - x;
+}
+// 0% 는 '없음'이 아니라 실제 값이다 — 도전과제가 아예 없는 게임만 null.
+const pctOf = (g) => (g.ach && g.ach.hasAchievements ? g.ach.completionPct : null);
+// 플레이 0분은 '안 켬'이라 뒤로 보낸다.
+const playOf = (g) => (g.playtimeMinutes ? g.playtimeMinutes : null);
+
+const GAME_SORTS = {
+  'play-desc': (a, b) => nullLast(playOf(a), playOf(b), -1),
+  'play-asc': (a, b) => nullLast(playOf(a), playOf(b), 1),
+  recent: (a, b) => nullLast(a.lastPlayed || null, b.lastPlayed || null, -1),
+  oldest: (a, b) => nullLast(a.lastPlayed || null, b.lastPlayed || null, 1),
+  'ach-desc': (a, b) => nullLast(pctOf(a), pctOf(b), -1),
+  'ach-asc': (a, b) => nullLast(pctOf(a), pctOf(b), 1),
+};
+
 function renderGames() {
   const q = ($('gameSearch').value || '').toLowerCase();
+  const key = ($('gameSort') && $('gameSort').value) || 'play-desc';
   const list = state.games
     .filter((g) => g.name.toLowerCase().includes(q))
-    .sort((a, b) => (b.playtimeMinutes || 0) - (a.playtimeMinutes || 0));
+    .slice()
+    .sort(GAME_SORTS[key] || GAME_SORTS['play-desc']);
   $('gameGrid').innerHTML = list.map((g) => {
     const pct = g.ach && g.ach.completionPct;
-    const meta = pct != null ? t('completion', { pct }) : (g.playtimeMinutes ? Math.round(g.playtimeMinutes / 60) + t('hours') : '');
+    // 1시간 미만을 "0시간"으로 쓰면 안 켠 것처럼 보인다 — 그건 분으로 말한다
+    const hours = !g.playtimeMinutes ? ''
+      : g.playtimeMinutes < 60 ? g.playtimeMinutes + t('minutes')
+      : Math.round(g.playtimeMinutes / 60) + t('hours');
+    // 정렬 기준으로 고른 값을 카드에도 보여준다 — 안 그러면 왜 이 순서인지 알 수 없다
+    const meta = key === 'recent' || key === 'oldest'
+      ? (g.lastPlayed ? fmtDate(g.lastPlayed) : t('dNever'))
+      : (pct != null ? t('completion', { pct }) : hours);
     const bar = pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : '';
     return `<div class="game-card" data-appid="${g.appid}"><img src="${imgHeader(g)}" ${coverAttrs(g)}><div class="gc-body"><div class="gc-name">${esc(g.name)}</div><div class="gc-meta">${meta}</div>${bar}</div></div>`;
   }).join('') || `<div class="empty">${t('emptyGroup')}</div>`;
 }
 $('gameSearch').addEventListener('input', renderGames);
+$('gameSort').addEventListener('change', renderGames);
 $('gameGrid').addEventListener('click', (e) => {
   const card = e.target.closest('.game-card');
   if (card && card.dataset.appid) navigate('games/' + card.dataset.appid);
@@ -445,11 +504,16 @@ function resumeCardHtml(c, isActive) {
 
   // 라벨을 값 옆에 두면 값이 쓸 폭이 그만큼 줄어 이름이 거의 다 잘렸다.
   // 라벨은 위로 올리고 값은 두 줄까지. 그래도 넘치면 title 로 전문을 보여준다.
-  const last = c.lastAchievement
+  // '마지막 플레이' 는 실제 실행 시각(lastPlayed)으로 말한다. 도전과제 unlockTime 은
+  // "깬 시각"이라 안 깨고 논 세션이 빠진다 — 라벨과 값이 어긋나면 그게 거짓말이 된다.
+  const lastAt = c.lastPlayed || (c.lastAchievement && c.lastAchievement.unlockTime) || null;
+  const last = lastAt
     ? `<div class="rc-row">
          <div class="rc-rowhead"><span class="rc-label">${t('resumeLastAch')}</span>
-           <span class="rc-date">${fmtDate(c.lastAchievement.unlockTime)}</span></div>
-         <div class="rc-ach" title="${esc(c.lastAchievement.name)}">${esc(c.lastAchievement.name)}</div>
+           <span class="rc-date">${fmtDateTime(lastAt)}</span></div>
+         ${c.lastAchievement
+           ? `<div class="rc-ach" title="${esc(c.lastAchievement.name)}">🏅 ${esc(c.lastAchievement.name)}</div>`
+           : ''}
        </div>`
     : '';
 
@@ -756,6 +820,8 @@ function renderCollected(box) {
   if (!collectionData) { box.innerHTML = `<div class="empty">${t('loading')}</div>`; loadCollection(); return; }
 
   const { counts, crown, games, harvest } = collectionData;
+  // crown(최고 기록 하나를 크게)은 뺐다 — 게임 하나가 화면 위를 다 먹어서
+  // "내 수집을 보자"는 목적에 오히려 방해가 됐다. 게임별 트로피만 남긴다.
   if (!crown) {
     box.innerHTML = emptyState(t('collectionEmptyTitle'), t('collectionEmpty'),
       `<a class="es-btn" href="#daily">${t('goDaily')}</a>`);
@@ -763,37 +829,34 @@ function renderCollected(box) {
   }
 
   // 등급 인덱스 — 색만으로는 안 들어온다. 기준을 글자로 못박는다.
+  // 누르면 그 등급을 가진 게임만 남는다(필터). 숫자를 보고 "그럼 어느 게임?"이
+  // 바로 이어지는데, 예전엔 그게 막다른 길이었다.
+  const sel = state.collTier || 'all';
   const tiles = [
     { key: 'legendary', n: counts.legendary },
     { key: 'rare', n: counts.rare },
-  ].map((x) => `<div class="tier-tile t-${x.key}">
+  ].map((x) => `<button class="tier-tile t-${x.key}${sel === x.key ? ' on' : ''}" data-tier="${x.key}" aria-pressed="${sel === x.key}">
       <span class="tt-head">${TIER_ICON[x.key]} ${t('tier' + x.key.charAt(0).toUpperCase() + x.key.slice(1))}</span>
       <span class="tt-n">${x.n}</span>
       <span class="tt-desc">${t(x.key === 'legendary' ? 'tierLegendaryDesc' : 'tierRareDesc')}</span>
-    </div>`).join('');
+    </button>`).join('');
   const tilesHtml = `<div class="tier-row">${tiles}
-    <div class="tier-tile t-total"><span class="tt-head">${t('tierTotal')}</span>
-      <span class="tt-n">${counts.total}</span><span class="tt-desc">&nbsp;</span></div>
+    <button class="tier-tile t-total${sel === 'all' ? ' on' : ''}" data-tier="all" aria-pressed="${sel === 'all'}">
+      <span class="tt-head">${t('tierTotal')}</span>
+      <span class="tt-n">${counts.total}</span><span class="tt-desc">${t('tierAllDesc')}</span></button>
   </div>`;
 
-  // 최고 기록 하나는 크게 — 들어오자마자 뿌듯할 거리가 있어야 한다
-  const crownHtml = `<section class="crown-card">
-    <img class="crown-art" src="${imgHeader(crown)}" data-fallback="${esc(crown.gameName)}">
-    <div class="crown-body">
-      <span class="crown-badge">${tierBadge(crown.tier)}<span class="crown-label">${t('crownLabel')}</span></span>
-      <div class="crown-pct">${crown.globalPercent}%</div>
-      <h3 class="crown-name">${esc(crown.name)}</h3>
-      <div class="crown-game">${esc(crown.gameName)}${crown.unlockTime ? ` · ${fmtDate(crown.unlockTime)}` : ''}</div>
-      <div class="crown-note">${t('crownOutOf', { n: perThousand(crown.globalPercent) })}</div>
-    </div>
-  </section>`;
 
-  const withTrophies = (games || []).filter((g) => g.top && g.top.length);
+
+  const withTrophies = (games || [])
+    .filter((g) => g.top && g.top.length)
+    .filter((g) => sel === 'all' || (g.counts && g.counts[sel] > 0));
   const gamesHtml = `<section class="coll-block">
-    <h3 class="group-title">${t('gamesTrophies')}<span class="gt-count">${t('collectionCount', { n: withTrophies.length })}</span></h3>
+    <h3 class="group-title">${t('gamesTrophies')}<span class="gt-count">${t('collectionCount', { n: withTrophies.length })}</span>
+      ${sel !== 'all' ? `<button class="tier-clear" data-tier="all">${t('tierClear')}</button>` : ''}</h3>
     ${withTrophies.length
       ? `<div class="gt-grid">${withTrophies.map((g) => gameTrophyCard(g, 'collected')).join('')}</div>`
-      : `<div class="empty">${t('gameShelfEmpty')}</div>`}
+      : `<div class="empty">${t('tierNoGames')}</div>`}
   </section>`;
 
   const harvestHtml = `<section class="coll-block">
@@ -804,7 +867,7 @@ function renderCollected(box) {
       : `<div class="empty">${t('harvestNone')}</div>`}
   </section>`;
 
-  box.innerHTML = tilesHtml + crownHtml + gamesHtml + harvestHtml;
+  box.innerHTML = tilesHtml + gamesHtml + harvestHtml;
 }
 
 // '노릴 것' 탭 — 미달성 = 사냥감. '모은 것'과 정확히 반대 축이다.
@@ -925,10 +988,14 @@ function renderDetail(appid, d) {
       posPctAll >= 70 ? 'good' : posPctAll >= 40 ? 'mid' : 'bad'));
   }
   if (info.metacritic) tiles.push(statTile(info.metacritic, 'Metacritic', t('dsOutOf100'), info.metacritic >= 75 ? 'good' : 'mid'));
+  // 기록을 못 읽었을 때 '한 번도 안 함'으로 적으면 거짓말이 된다 — '동기화 전'으로 구분한다
+  const noRec = !d.progress || !d.progress.name;
   tiles.push(statTile(
-    pr.playtimeMinutes ? t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) }) : t('dsNeverShort'),
+    noRec ? t('dsNoSync') : (pr.playtimeMinutes ? t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) }) : t('dsNeverShort')),
     t('dsMyRecord'),
-    achAll ? t('achCount', { u: achAll.unlocked, t: achAll.total }) : (pr.playtimeMinutes ? t('dLastPlayed') + ' ' + (pr.lastPlayed ? fmtDate(pr.lastPlayed) : '-') : t('dNever'))));
+    noRec ? '&nbsp;'
+      : achAll ? t('achCount', { u: achAll.unlocked, t: achAll.total })
+      : (pr.playtimeMinutes ? t('dLastPlayed') + ' ' + (pr.lastPlayed ? fmtDate(pr.lastPlayed) : '-') : t('dNever'))));
   if (info.price) tiles.push(statTile(esc(info.price), t('dsPrice'), d.dlcTotal ? t('dsDlcCount', { n: d.dlcTotal }) : ''));
   const statStrip = tiles.length
     ? `<section class="d-stats"><h3 class="ds-title">${t('dsTitle')}</h3><div class="d-stat-row">${tiles.join('')}</div></section>`
@@ -938,12 +1005,27 @@ function renderDetail(appid, d) {
   // 스트립으로 올라갔다. 남은 건 "내가 이 게임에서 뭘 했나" 하나라 카드도 하나로 합친다.
   const ach = pr.ach && pr.ach.hasAchievements ? pr.ach : null;
   let recInner = '';
-  if (pr.playtimeMinutes) {
-    recInner += `<div class="d-kv"><b>${t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) })}</b> · ${t('dLastPlayed')} ${pr.lastPlayed ? fmtDate(pr.lastPlayed) : '-'}</div>`;
+  // progress 가 통째로 비었다 = 이 게임을 못 찾은 것이지 "안 한" 게 아니다.
+  // 동기화 전이거나 라이브러리에 없는 게임인데 "한 번도 안 켰다"고 단정하면 거짓말이다.
+  const noRecord = !d.progress || !d.progress.name;
+  if (noRecord) {
+    // 보유하지 않은 게임에 "동기화하세요"라고 하면 유저는 고칠 수 없는 걸 고치려 든다.
+    recInner += d.progressReason === 'not-owned'
+      ? `<div class="empty">${t('dNotOwned')}</div>`
+      : `<div class="empty">${t('dNoSync')}</div>
+         <div style="margin-top:10px"><button class="es-btn" data-act="sync">${t('dSyncNow')}</button></div>`;
+  } else if (pr.playtimeMinutes) {
+    const bits = [`<b>${t('dPlaytime', { h: Math.round(pr.playtimeMinutes / 60) })}</b>`];
+    // 날짜만으론 "언제 했더라"가 안 풀린다 — 시각까지.
+    if (pr.lastPlayed) bits.push(`${t('dLastPlayed')} ${fmtDateTime(pr.lastPlayed)}`);
+    if (pr.playtime2weeks) bits.push(t('dRecent2w', { h: Math.max(1, Math.round(pr.playtime2weeks / 60)) }));
+    recInner += `<div class="d-kv">${bits.join(' · ')}</div>`;
   } else {
     recInner += `<div class="empty">${t('dNever')}</div>`;
   }
-  if (ach) {
+  if (noRecord) {
+    // 기록을 못 읽은 상태에서 "도전과제 없음"이라고 하면 그것도 거짓말이다
+  } else if (ach) {
     const unlocked = ach.achievements.filter((a) => a.achieved).sort((a, b) => (b.unlockTime || 0) - (a.unlockTime || 0));
     const locked = ach.achievements.filter((a) => !a.achieved).sort((a, b) => (b.globalPercent || 0) - (a.globalPercent || 0));
     recInner += `<div class="d-prog-bar"><i style="width:${ach.completionPct}%"></i></div>
@@ -979,6 +1061,8 @@ function renderDetail(appid, d) {
     (info.shortDescription ? `<div class="detail-desc">${esc(info.shortDescription)}</div>` : '') +
     `<div class="detail-grid">${achCard}${newsCard}${dlcCard}</div>`;
   $('detailBack').onclick = () => navigate('games');
+  const syncBtn = $('gameDetail').querySelector('[data-act="sync"]');
+  if (syncBtn) syncBtn.onclick = () => startSync(false);
 }
 
 // ── 도전과제 ──────────────────────────────────────────────────────
@@ -998,6 +1082,15 @@ function renderAch() {
   else renderAchByGame(box);
 }
 
+// 등급 타일 = 필터. 같은 걸 다시 누르면 해제되어 전체로 돌아온다.
+$('achContent').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-tier]');
+  if (!btn) return;
+  const next = btn.dataset.tier;
+  state.collTier = next === state.collTier ? 'all' : next;
+  renderCollected($('achContent'));
+});
+
 // '게임별' 탭 — 수집 현황(전설/희귀 개수)과 진행률을 한 카드에. 누르면 게임 상세로.
 // 예전에는 아코디언으로 도전과제를 펼쳤지만, 상세 페이지가 그걸 더 잘 보여준다.
 function renderAchByGame(box) {
@@ -1013,6 +1106,14 @@ let friendLoading = false, friendData = null;
 
 // 버튼을 없앴다. 동기화된 정보로 만들 수 있는 화면인데 한 번 더 누르게 할 이유가 없다.
 // (서버가 60초 캐시를 물고 있어 탭을 오갈 때마다 새로 계산하지도 않는다)
+// 친구 목록 조회 실패는 일시적인 경우가 많다 — 다시 시도 버튼을 준다.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act="retry-friends"]');
+  if (!b) return;
+  friendData = null;
+  loadFriends();
+});
+
 function renderFriendsIfLoaded() {
   if (friendData) renderFriends(friendData);
   else loadFriends();
@@ -1029,6 +1130,12 @@ async function loadFriends() {
 function renderFriends(res) {
   const list = $('friendList');
   if (res.error) { $('friendProgress').textContent = '❌ ' + res.error; return; }
+  // '못 읽음'과 '비공개'를 구분한다 — 전자는 다시 시도하면 되고, 후자는 설정을 바꿔야 한다.
+  if (res.fetchError) {
+    $('friendProgress').textContent = t('friendFetchFail');
+    list.innerHTML = `<div class="empty">${t('friendFetchFailHint')}<br><button class="es-btn" style="margin-top:10px" data-act="retry-friends">${t('retry')}</button></div>`;
+    return;
+  }
   if (res.privateFriendList || res.friendCount === 0) { $('friendProgress').textContent = t('friendPrivate'); list.innerHTML = ''; return; }
   if (!res.games || !res.games.length) { $('friendProgress').textContent = t('friendNoCoop', { n: res.friendCount }); list.innerHTML = ''; return; }
   let summary = t('friendSummary', { n: res.friendCount, p: res.publicFriends, g: res.games.length });

@@ -50,9 +50,14 @@ async function buildFriendCoop(apiKey, steamId, myGames, dir, onProgress) {
   }
 
   // 1) 친구 목록
-  const friends = await api.getFriendList(apiKey, steamId);
+  const fl = await api.getFriendList(apiKey, steamId);
+  const friends = fl.friends;
+  if (fl.error) {
+    // 못 읽은 걸 '비공개'라고 하면 유저는 고칠 수 없는 걸 고치려 든다.
+    return { friendCount: 0, publicFriends: 0, privateFriendList: false, fetchError: fl.error, games: [] };
+  }
   if (!friends.length) {
-    return { friendCount: 0, publicFriends: 0, privateFriendList: true, games: [] };
+    return { friendCount: 0, publicFriends: 0, privateFriendList: fl.private, games: [] };
   }
   const friendIds = friends.map((f) => f.steamid);
 

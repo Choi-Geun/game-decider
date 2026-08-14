@@ -73,6 +73,8 @@ function toCard(entry) {
     burstCount: signals.burstCount,
     unlockPaceMinutes: signals.unlockPaceMinutes,
     playtimeMinutes: signals.playtimeMinutes,
+    // 실제 마지막 실행 시각. 도전과제 unlockTime 은 "깬 시각"이라 안 깨고 논 세션은 안 잡힌다.
+    lastPlayed: game.lastPlayed || null,
     lastAchievement: last
       ? { name: last.name, description: last.description, globalPercent: last.globalPercent, unlockTime: last.unlockTime }
       : null,

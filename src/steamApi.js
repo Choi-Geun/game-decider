@@ -110,14 +110,22 @@ async function getGlobalAchievementPercents(appid) {
   }
 }
 
-// 친구 목록 (친구 목록이 공개여야 함). [{ steamid, friend_since }]
+// 친구 목록 (친구 목록이 공개여야 함).
+//
+// 예전엔 실패를 전부 []로 뭉개서, 공개 목록인데도 "비공개거나 친구가 없어요"가 떴다.
+// 429 레이트리밋·5xx·타임아웃·키 만료가 전부 '비공개'로 둔갑한 것이다.
+// 그래서 **못 읽은 것과 없는 것을 구분**해서 돌려준다.
+// @returns {{friends: Array, error: string|null, private: boolean}}
 async function getFriendList(apiKey, steamId) {
   const path = `/ISteamUser/GetFriendList/v1/?key=${apiKey}&steamid=${steamId}&relationship=friend`;
   try {
     const j = await getJson(path);
-    return j.friendslist?.friends || [];
-  } catch (_e) {
-    return []; // 401(비공개) 등 → 빈 목록
+    return { friends: j.friendslist?.friends || [], error: null, private: false };
+  } catch (e) {
+    const msg = String(e.message || e);
+    // 401/403 만 진짜 '비공개'다. 나머지는 우리가 못 읽은 것.
+    const isPrivate = /\b(401|403)\b/.test(msg);
+    return { friends: [], error: isPrivate ? null : msg, private: isPrivate };
   }
 }
 

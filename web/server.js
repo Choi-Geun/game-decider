@@ -431,6 +431,10 @@ app.get('/api/game/:appid', requireAuth, async (req, res) => {
   const cache = cacheStore.loadCache(CACHE_DIR, req.session.steamId);
   const game = cache && (cache.games || []).find((g) => g.appid === appid);
 
+  // progress 가 없는 이유를 알려준다. 안 그러면 클라이언트가 '미동기화'와 '미보유'를
+  // 구분 못 해, 보유하지도 않은 게임에 "동기화하세요"라고 잘못 안내한다.
+  const progressReason = game ? null : (!cache ? 'not-synced' : 'not-owned');
+
   let progress = null;
   if (game) {
     progress = {
@@ -446,9 +450,9 @@ app.get('/api/game/:appid', requireAuth, async (req, res) => {
 
   try {
     const detail = await buildGameDetail(appid, lang, CACHE_DIR, Date.now());
-    res.json({ appid, progress, info: detail.info, news: detail.news, reviews: detail.reviews, dlc: detail.dlc, dlcTotal: detail.dlcTotal, cachedAt: detail.at });
+    res.json({ appid, progress, progressReason, info: detail.info, news: detail.news, reviews: detail.reviews, dlc: detail.dlc, dlcTotal: detail.dlcTotal, cachedAt: detail.at });
   } catch (e) {
-    res.json({ appid, progress, error: String(e.message || e) });
+    res.json({ appid, progress, progressReason, error: String(e.message || e) });
   }
 });
 
@@ -465,7 +469,8 @@ app.get('/api/friends', requireAuth, async (req, res) => {
 
   try {
     const data = await buildFriendCoop(API_KEY, steamId, cache.games, CACHE_DIR);
-    friendResultCache.set(steamId, { at: Date.now(), data });
+    // 실패한 결과는 캐싱하지 않는다 — 일시적인 429 하나가 60초 동안 잘못된 화면을 고정시킨다
+    if (!data.fetchError) friendResultCache.set(steamId, { at: Date.now(), data });
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });

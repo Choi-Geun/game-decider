@@ -11,7 +11,9 @@
 </head>
 <body>
   <!-- 로그인 화면 -->
-  <div id="loginScreen" class="login-screen">
+  <!-- 로그인 여부는 서버 쿠키라 파싱 시점엔 알 수 없다. 둘 다 숨겨두고
+       /api/me 응답 뒤에 하나만 연다 — 안 그러면 새로고침마다 로그인 화면이 번쩍인다. -->
+  <div id="loginScreen" class="login-screen hidden">
     <div class="corner-lang lang-switch" id="langSwitchLogin">
       <button data-lang="ko">한국어</button><button data-lang="en">English</button>
     </div>
@@ -92,7 +94,19 @@
       <section id="view-games" class="view hidden">
         <div id="gamesBrowse">
           <h2 data-i18n="navGames">내 게임</h2>
-          <input type="text" id="gameSearch" class="search" data-i18n-ph="searchGames" placeholder="게임 검색…" />
+          <div class="games-toolbar">
+            <input type="text" id="gameSearch" class="search" data-i18n-ph="searchGames" placeholder="게임 검색…" />
+            <label class="sort-field"><span data-i18n="sortLabel">정렬</span>
+              <select id="gameSort" class="sort-select">
+                <option value="play-desc" data-i18n="sortPlayDesc">플레이 많은 순</option>
+                <option value="play-asc" data-i18n="sortPlayAsc">플레이 적은 순</option>
+                <option value="recent" data-i18n="sortRecent">최근 플레이 순</option>
+                <option value="oldest" data-i18n="sortOldest">오래전 플레이 순</option>
+                <option value="ach-desc" data-i18n="sortAchDesc">달성률 높은 순</option>
+                <option value="ach-asc" data-i18n="sortAchAsc">달성률 낮은 순</option>
+              </select>
+            </label>
+          </div>
           <div id="gameGrid" class="game-grid"></div>
         </div>
         <div id="gameDetail" class="game-detail hidden"></div>
