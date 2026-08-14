@@ -16,7 +16,7 @@
   /* 선 */
   --border: #24374A;
   --border-strong: #33506B;
-  --overlay-border: var(--overlay-border);
+  --overlay-border: #FFFFFF2A;
 
   /* 글자 */
   --text: #E6EDF3;
@@ -36,9 +36,9 @@
   --on-primary: var(--on-accent);
 
   /* 등급 */
-  --gold: var(--gold);
-  --gold-tint: var(--gold)1F;
-  --gold-border: var(--gold-border);
+  --gold: #FFB545;
+  --gold-tint: #FFB5451F;
+  --gold-border: #5A431C;
   --rare: #B79CFF;
   --rare-tint: #B79CFF1F;
   --rare-border: #473C66;
@@ -49,7 +49,7 @@
   /* 기타 */
   --coop: var(--accent-cyan);
   --coop-dim: #123243;
-  --steam: var(--steam);
+  --steam: #1B2838;
   --steam-border: #2C4460;
   --danger: #FF7B72;
   --overlay: #070A0ECC;
