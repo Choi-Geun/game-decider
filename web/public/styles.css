@@ -557,10 +557,20 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .draw-card {
   position: relative; display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; max-width: 560px; padding: 2px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-xl); overflow: hidden;
-  /* 뒤집히며 등장 — 뽑는 맛 */
-  animation: card-flip .5s cubic-bezier(.2, .8, .3, 1);
-  animation-delay: calc(var(--i) * 110ms);
   transform-origin: 50% 50%;
+}
+/* 뒤집히며 등장 — 뽑는 맛.
+   .deal 이 붙은 렌더에서만 돈다. 전에는 .draw-card 에 걸려 있어서 다시 그릴
+   때마다 replay 됐다 — 첫 진입에서 자동 동기화가 끝나면 dailyData 를 비우고
+   다시 그리므로 카드가 두 번 돌았다.
+   속도는 0.5s/110ms 에서 늘렸다. 90도 플립을 반 초에 끝내면 튕기는 느낌이라
+   '뽑는 맛'이 아니라 화면이 덜컥거리는 것처럼 읽혔다. */
+/* ⚠️ animation-fill-mode 는 쓰지 않는다 — backwards 가 걸리면 탭이 백그라운드일 때
+   from 상태(opacity 0)에 멈춰 카드가 통째로 안 보인다(파일 하단 로딩 절의 경고와 같은 함정).
+   그래서 지연은 짧게 두고 지속시간으로 느긋함을 만든다. */
+.draw-deck.deal > .draw-card {
+  animation: card-flip .78s cubic-bezier(.22, .72, .26, 1);
+  animation-delay: calc(var(--i) * 120ms);
 }
 @keyframes card-flip {
   from { transform: perspective(900px) rotateY(90deg) translateY(8px); opacity: 0; }
@@ -931,13 +941,22 @@ h2 { margin: 0 0 4px; font-size: 22px; }
      visibility 는 살려둔다 — 즉시 hidden 이 되어야 닫힌 시트가 탭 순서에서 빠진다. */
   .mobile .lnb, .mobile .app.sheet-open .lnb { transition: visibility 0s; }
   .mobile .sheet-scrim, .mobile .app.sheet-open .sheet-scrim { transition: visibility 0s; }
-  .draw-card { animation: none; }
+  .draw-deck.deal > .draw-card { animation: none; }
   .done-banner { animation: none; }
 }
 
 /* '동기화됨 …' 줄이 강제 동기화 수단 — 버튼이 숨겨져도 길은 남겨둔다 */
 .synced { cursor: pointer; }
 .synced:hover { color: var(--text-2); text-decoration: underline; }
+
+/* ── 동기화 안내를 담는 동안에는 컨테이너의 격자·flex 를 끈다 ──
+   #gameGrid 는 2열 격자라서 안내 패널이 '칸'으로 들어가 한 열로 짜부라졌다.
+   .ach-content·.friend-list 도 flex 라 같은 종류의 문제가 생긴다.
+   .mobile 규칙(0,2,0)을 덮어야 하므로 클래스를 함께 붙여 (0,3,0) 으로 만든다. */
+.game-grid.is-blocked, .ach-content.is-blocked, .friend-list.is-blocked,
+.mobile .game-grid.is-blocked, .mobile .ach-content.is-blocked, .mobile .friend-list.is-blocked {
+  display: block;
+}
 
 /* 첫 동기화 중 가운데 화면 — 몇 분 걸리므로 진행 상황이 보여야 기다릴 수 있다 */
 .sync-panel {

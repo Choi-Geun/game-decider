@@ -33,18 +33,35 @@ function skelDeck() {
 }
 // 첫 동기화 중 화면. 몇 분 걸리므로 "얼마나 왔는지"가 보여야 기다릴 수 있다.
 // 진행 텍스트는 pollProgress 가 #syncPanelText 에 채운다.
+// 어느 메뉴에서 보여도 같은 모양이어야 하므로 화면별 스켈레톤은 붙이지 않는다.
+// (전에는 카드 덱 스켈레톤을 함께 붙였는데, '내 게임'·'친구랑'에서는 올 모양이
+//  카드 덱이 아니라서 오히려 틀린 예고가 된다.)
 function syncingPanel() {
   return `<div class="sync-panel">
     <div class="gd-spinner"></div>
     <h3>${esc(t('syncPanelTitle'))}</h3>
     <p id="syncPanelText">${esc(t('syncChecking'))}</p>
     <p class="sp-note">${esc(t('needSyncDesc'))}</p>
-  </div>${skelDeck()}`;
+  </div>`;
 }
 
 // 모양을 미리 알 수 없는 짧은 대기에만
 function loadNote(msg) {
   return `<div class="load-note"><span class="gd-spinner"></span>${esc(msg || t('loading'))}</div>`;
+}
+
+// ── 동기화 때문에 비어 있는 화면 ───────────────────────────────────
+// 어느 메뉴에서든 똑같이 말해야 한다. 화면마다 다른 문구·모양으로 비면
+// "이 메뉴만 고장났나?"로 읽히고, 실제로는 그냥 아직 받는 중이다.
+// 돌려주는 값이 null 이면 각 화면이 알아서 그린다
+// (아직 못 받았으면 그 화면의 스켈레톤, 데이터가 있으면 정상 렌더).
+function syncBlockedHtml() {
+  if (!gamesLoadedOnce) return null;   // 첫 응답 전 — 각 화면의 스켈레톤이 맡는다
+  if (state.games.length) return null; // 보여줄 게 있다
+  return (syncing || syncIsStale())
+    ? syncingPanel()
+    : emptyState(t('needSyncTitle'), t('needSyncDesc'),
+        `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
 }
 
 // 날짜 + 시각. Steam 은 초 단위 unix 를 주므로 분까지만 쓴다.
@@ -303,6 +320,17 @@ async function refreshMeLight() {
 $('sync').addEventListener('click', () => startSync(false));
 $('synced').addEventListener('click', () => startSync(false));
 
+// '지금 가져오기'는 오늘의 도전·이어하기·내 게임·도전과제·친구랑·게임 상세의
+// 빈 상태에서 모두 나온다. 화면마다 물려주면 한 곳을 빼먹는 순간 눌러도 아무 일이
+// 없어 고장으로 읽힌다 — 소유자를 한 곳으로 둔다.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act="sync"]');
+  if (!b || b.disabled) return;
+  b.disabled = true;
+  b.textContent = t('checking');
+  startSync(false);
+});
+
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
 //   #spin | #games | #games/{appid} | #ach | #ach/{subtab} | #friends
@@ -543,6 +571,15 @@ const GAME_SORTS = {
 function renderGames() {
   // 아직 못 받았을 뿐인데 "게임이 없어요"라고 하면 거짓말이다.
   if (!gamesLoadedOnce) { $('gameGrid').innerHTML = skelGrid(8, 'game-grid'); return; }
+  // 동기화 때문에 빌 때는 검색·정렬을 내리고 다른 화면과 같은 안내를 보여준다.
+  // 고를 게 없는데 검색창만 남아 있으면 "검색해도 안 나온다"로 오해한다.
+  const blocked = syncBlockedHtml();
+  $('gameSearch').classList.toggle('hidden', !!blocked);
+  $('gameSort').classList.toggle('hidden', !!blocked);
+  // is-blocked = 이 컨테이너의 격자/flex 를 끈다. #gameGrid 는 2열 격자라서
+  // 안내 패널이 '칸'으로 들어가 한 열로 짜부라졌다.
+  $('gameGrid').classList.toggle('is-blocked', !!blocked);
+  if (blocked) { $('gameGrid').innerHTML = blocked; return; }
   const q = ($('gameSearch').value || '').toLowerCase();
   const key = GAME_SORTS[state.gameSort] ? state.gameSort : 'recent';
   const list = state.games
@@ -670,6 +707,9 @@ function resumeCardHtml(c, isActive) {
 function renderResume() {
   const box = $('resumeContent');
   if (!box) return;
+  const blocked = syncBlockedHtml();
+  box.classList.toggle('is-blocked', !!blocked);
+  if (blocked) { box.innerHTML = blocked; return; }
   if (!resumeData) { box.innerHTML = skelRows(3); loadResume(); return; }
 
   const { active = [], dropped = [], droppedTotal = 0 } = resumeData;
@@ -715,6 +755,9 @@ function emptyState(title, desc, action) {
 // 읽고 끝나는 화면이 아니라, 미해결 상태를 하나 안고 나가게 만드는 장치.
 // 세 장 중 하나만 고를 수 있다 — 버린 두 장이 아까워야 고른 하나에 무게가 생긴다.
 let dailyData = null, dailyBusy = false;
+// 마지막으로 '돌린' 덱의 지문. 같은 카드를 다시 그리는 것뿐이면 애니메이션을
+// 재생하지 않는다 — 언어 전환·동기화 완료 같은 재렌더에도 카드가 또 돌았다.
+let lastDeckSig = null;
 
 async function loadDaily(force) {
   if (dailyBusy) return;
@@ -779,12 +822,18 @@ function drawCardHtml(c, i, picked) {
 function renderDaily() {
   const box = $('dailyContent');
   if (!box) return;
+  // 동기화 탓에 비었으면 다른 메뉴와 똑같은 안내로. 카드를 기다릴 필요도 없다.
+  const blocked = syncBlockedHtml();
+  box.classList.toggle('is-blocked', !!blocked);
+  if (blocked) { box.innerHTML = blocked; return; }
   if (!dailyData) { box.innerHTML = skelDeck(); loadDaily(); return; }
+  // 서버가 needsSync 라고 하면 그쪽을 믿는다(캐시는 있지만 도전과제가 없는 경우 등).
+  // 문구·모양은 위와 같은 것을 쓴다 — 화면마다 달라지면 안 된다.
   if (dailyData.needsSync) {
-    // 이미 동기화가 돌고 있는데 "지금 가져오기" 버튼을 내밀면 안 된다 —
-    // 눌러도 아무 일이 없어 고장처럼 보인다. 도는 중이면 진행 상황을 보여준다.
-    box.innerHTML = (syncing || syncIsStale()) ? syncingPanel() : emptyState(t('needSyncTitle'), t('needSyncDesc'),
-      `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
+    box.innerHTML = (syncing || syncIsStale())
+      ? syncingPanel()
+      : emptyState(t('needSyncTitle'), t('needSyncDesc'),
+          `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
     return;
   }
 
@@ -815,7 +864,13 @@ function renderDaily() {
   const meta = [t('statsDone', { n: stats.done || 0 })];
   if (isPicked && syncedAt) meta.push(t('lastChecked', { date: syncedAt }));
 
-  const deck = `<div class="draw-deck${isPicked ? ' single' : ''}">
+  // 카드가 실제로 바뀐 렌더에서만 돌린다(새 뽑기·리롤·고르기). 내용이 같으면
+  // 그대로 얹는다 — 안 그러면 재렌더마다 replay 돼서 두 번 도는 것처럼 보인다.
+  const sig = JSON.stringify([isPicked, shown.map((c) => c.appid + ' ' + c.achName)]);
+  const deal = sig !== lastDeckSig;
+  lastDeckSig = sig;
+
+  const deck = `<div class="draw-deck${isPicked ? ' single' : ''}${deal ? ' deal' : ''}">
     ${shown.map((c, i) => drawCardHtml(c, isPicked ? picked.index : i, isPicked)).join('')}
   </div>`;
 
@@ -847,11 +902,13 @@ $('dailyContent').addEventListener('click', (e) => {
   if (!act) return;
   // 판정은 동기화가 한다. 유저가 직접 확인할 수 있는 길을 열어둔다 —
   // 깼는데 화면이 그대로면 기다리는 것 말곤 할 게 없었다.
-  if (act.dataset.act === 'check' || act.dataset.act === 'sync') {
+  // 'sync' 는 아래 문서 단위 위임이 맡는다(여러 화면의 빈 상태에서 나온다).
+  if (act.dataset.act === 'check') {
     act.disabled = true;
     act.textContent = t('checking');
     return startSync(false);
   }
+  if (act.dataset.act === 'sync') return;
   dailyAction('/api/draw/' + act.dataset.act);
 });
 
@@ -1195,8 +1252,7 @@ function renderDetail(appid, d) {
     (info.shortDescription ? `<div class="detail-desc">${esc(info.shortDescription)}</div>` : '') +
     `<div class="detail-grid">${achCard}${newsCard}${dlcCard}</div>`;
   $('detailBack').onclick = () => navigate('games');
-  const syncBtn = $('gameDetail').querySelector('[data-act="sync"]');
-  if (syncBtn) syncBtn.onclick = () => startSync(false);
+  // '지금 가져오기'는 문서 단위 위임이 맡는다 — 여기서 또 물리면 두 번 호출된다.
 }
 
 // ── 도전과제 ──────────────────────────────────────────────────────
@@ -1215,13 +1271,9 @@ function renderAch() {
   // (renderGames·renderDaily 는 이미 이 규칙을 지키고 있었는데 여기만 빠져 있었다.
   //  Render 무료 플랜은 재배포하면 캐시가 날아가서 정확히 이 경로로 들어온다.)
   if (!gamesLoadedOnce) { box.innerHTML = skelGrid(6, 'gt-grid'); return; }
-  if (!state.games.length) {
-    box.innerHTML = (syncing || syncIsStale())
-      ? syncingPanel()
-      : emptyState(t('needSyncTitle'), t('needSyncDesc'),
-          `<button class="es-btn" data-act="sync">${t('needSyncBtn')}</button>`);
-    return;
-  }
+  const blocked = syncBlockedHtml();
+  box.classList.toggle('is-blocked', !!blocked);
+  if (blocked) { box.innerHTML = blocked; return; }
   if (!withAchGames().length) {
     // 비공개는 '없는' 게 아니라 '못 읽는' 것이다. 위 경고 배너가 방법을 알려주므로
     // 여기서는 그 배너를 가리키기만 한다 — 같은 화면에서 서로 다른 말을 하면 안 된다.
@@ -1235,14 +1287,6 @@ function renderAch() {
 
 // 등급 타일 = 필터. 같은 걸 다시 누르면 해제되어 전체로 돌아온다.
 $('achContent').addEventListener('click', (e) => {
-  // 동기화 전 빈 화면의 '지금 가져오기'. 버튼만 그려놓고 안 물리면 눌러도
-  // 아무 일이 없어 고장으로 읽힌다.
-  const sync = e.target.closest('[data-act="sync"]');
-  if (sync) {
-    sync.disabled = true;
-    sync.textContent = t('checking');
-    return startSync(false);
-  }
   const btn = e.target.closest('[data-tier]');
   if (!btn) return;
   const next = btn.dataset.tier;
@@ -1274,6 +1318,15 @@ document.addEventListener('click', (e) => {
 });
 
 function renderFriendsIfLoaded() {
+  // 내 게임이 없으면 교집합을 낼 수가 없다 — 친구 조회를 걸기 전에 같은 안내를 보여준다.
+  // (안 막으면 몇 분짜리 친구 조회를 돌린 끝에 "함께할 게임 없음"으로 끝난다)
+  const blocked = syncBlockedHtml();
+  $('friendList').classList.toggle('is-blocked', !!blocked);
+  if (blocked) {
+    $('friendProgress').classList.add('hidden');
+    $('friendList').innerHTML = blocked;
+    return;
+  }
   if (friendData) renderFriends(friendData);
   else loadFriends();
 }
