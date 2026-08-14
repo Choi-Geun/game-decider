@@ -932,3 +932,7 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   .skel { animation: none; }
   .gd-spinner { animation-duration: 2.4s; }
 }
+
+/* '동기화됨 …' 줄이 강제 동기화 수단 — 버튼이 숨겨져도 길은 남겨둔다 */
+.synced { cursor: pointer; }
+.synced:hover { color: var(--text-2); text-decoration: underline; }

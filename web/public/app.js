@@ -86,6 +86,7 @@ document.addEventListener(
 
 // gameSort 기본값이 '최근 플레이 순'인 이유: 라이브러리를 열 때 찾는 건
 // 보통 "요즘 뭐 하고 있었지"다. 총 플레이 시간 1위는 몇 년 전에 끝난 게임일 수 있다.
+let syncSilent = false, syncFailed = false;
 const state = { me: null, games: [], achievementsBlocked: false, view: 'spin', achGroup: 'collected', lastPick: null, didInitialSpin: false, gameSort: 'recent', collTier: 'all' };
 
 // ── 언어 전환 ─────────────────────────────────────────────────────
@@ -146,10 +147,10 @@ async function refreshMe() {
     autoSetup = true;
     // 새로고침할 때마다 동기화하면 매번 40초를 기다리고 Steam API 도 그만큼 때린다.
     // 캐시가 없을 때만 즉시 받고, 있으면 낡았을 때만 갱신한다.
-    if (syncIsStale()) startSync(false);
-    setInterval(() => { if (syncIsStale()) startSync(false); }, 20 * 60 * 1000);
+    if (syncIsStale()) startSync(false, true);
+    setInterval(() => { if (syncIsStale()) startSync(false, true); }, 20 * 60 * 1000);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && syncIsStale()) startSync(false);
+      if (document.visibilityState === 'visible' && syncIsStale()) startSync(false, true);
     });
   }
 }
@@ -169,6 +170,8 @@ function renderProfile() {
   if (me.profile) { $('avatar').src = me.profile.avatar || ''; $('pname').textContent = me.profile.name || me.steamId; }
   else $('pname').textContent = me.steamId;
   $('synced').textContent = me.updatedAt ? t('syncedAt', { date: fmtDate(me.updatedAt), n: me.count || 0 }) : t('notSynced');
+  $('synced').title = t('syncNowHint');
+  updateSyncAffordance();
 }
 
 async function loadGames() {
@@ -198,6 +201,17 @@ async function loadGames() {
 
 // ── 동기화 ────────────────────────────────────────────────────────
 let syncing = false, autoSetup = false, gamesLoadedOnce = false;
+// 동기화 버튼은 '필요할 때만' 보인다. 늘 떠 있으면 뭔가 잘못된 것처럼 읽히고,
+// 실제로는 대부분의 방문에서 누를 일이 없다.
+// 다만 조용히 감추기만 하면 강제 동기화 수단이 사라지므로,
+// 프로필의 '동기화됨 …' 줄을 눌러 언제든 돌릴 수 있게 남겨둔다.
+function updateSyncAffordance() {
+  const me = state.me;
+  const needs = !me || !me.loggedIn ? false : (!me.hasCache || syncFailed);
+  const btn = $('sync');
+  if (btn) btn.classList.toggle('hidden', !(needs || syncing && !syncSilent));
+}
+
 function setSyncing(on) {
   syncing = on;
   const btn = $('sync');
@@ -220,7 +234,7 @@ async function pollProgress() {
   let p;
   try { p = await fetch('/api/sync/progress').then((r) => r.json()); } catch (e) { setSyncing(false); return; }
   if (p.status === 'running') {
-    $('progress').textContent = p.total ? t('syncProgress', { done: p.done, total: p.total, name: p.name || '' }) : t('syncChecking');
+    if (!syncSilent) $('progress').textContent = p.total ? t('syncProgress', { done: p.done, total: p.total, name: p.name || '' }) : t('syncChecking');
     setTimeout(pollProgress, 1000);
   } else if (p.status === 'done') {
     const s = p.stats || {};
@@ -231,13 +245,14 @@ async function pollProgress() {
     refreshMeLight();
     loadGames();
     if (!s.fetched) setTimeout(() => $('progress').classList.add('hidden'), 2500);
-  } else if (p.status === 'error') { $('progress').textContent = '❌ ' + (p.error || ''); setSyncing(false); }
+  } else if (p.status === 'error') { syncFailedWith('❌ ' + (p.error || '')); }
   else setSyncing(false);
 }
 async function refreshMeLight() {
   try { state.me = await fetch('/api/me').then((r) => r.json()); renderProfile(); } catch (e) {}
 }
 $('sync').addEventListener('click', () => startSync(false));
+$('synced').addEventListener('click', () => startSync(false));
 
 // ── 네비게이션 (해시 라우팅) ──────────────────────────────────────
 // URL 해시가 곧 현재 뷰. 새로고침해도 뷰가 유지되고, 특정 화면을 링크로 공유할 수 있다.
